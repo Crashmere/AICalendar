@@ -1,0 +1,25 @@
+[Unit]
+Description=AICalendar personal AI activity calendar
+After=network.target
+
+[Service]
+Type=simple
+User=aicalendar
+Group=aicalendar
+WorkingDirectory=/opt/aicalendar
+EnvironmentFile=/opt/aicalendar/config/aicalendar.env
+ExecStart=/opt/aicalendar/bin/aicalendar serve
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=15
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/opt/aicalendar/data
+MemoryMax=192M
+Environment=GOMEMLIMIT=144MiB
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,12 @@
+.local/
+.venv/
+bin/
+var/
+web/node_modules/
+web/dist/
+__pycache__/
+*.pyc
+.DS_Store
+.idea/
+*.sqlite*
+*.env.local

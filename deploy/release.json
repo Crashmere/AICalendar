@@ -1,0 +1,12 @@
+{
+  "app": "aicalendar",
+  "build": [
+    "make",
+    "linux",
+    "BASE_PATH=/aicalendar/"
+  ],
+  "binary": "bin/aicalendar-linux-amd64",
+  "portal": true,
+  "restricted": true,
+  "gzip": false
+}

@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "idempotency_key": "example-import-20261007-001",
+  "mode": "insert_only",
+  "records": [
+    {
+      "source": "trae-personal",
+      "external_id": "example-conversation/2026-10-07",
+      "conversation_id": "example-conversation",
+      "activity_date": "2026-10-07",
+      "timezone": "Asia/Shanghai",
+      "first_activity_at": "2026-10-07T09:10:00+08:00",
+      "last_activity_at": "2026-10-07T16:25:00+08:00",
+      "user_message_count": 6,
+      "title": "规划 AI 活动日历",
+      "summary": "整理记录方式、页面功能和导入格式。",
+      "tags": [
+        "产品规划",
+        "个人工具"
+      ],
+      "spans": [
+        {
+          "start": "2026-10-07T09:10:00+08:00",
+          "end": "2026-10-07T09:30:00+08:00"
+        },
+        {
+          "start": "2026-10-07T16:00:00+08:00",
+          "end": "2026-10-07T16:25:00+08:00"
+        }
+      ],
+      "quality": {
+        "count": "observed",
+        "time": "estimated_interaction_span",
+        "topic": "agent_summary"
+      },
+      "provenance": {
+        "method": "agent_import",
+        "producer": "example-agent",
+        "source_ref": "local-export-batch-001",
+        "produced_at": "2026-10-07T17:00:00+08:00"
+      },
+      "record_state": "final"
+    }
+  ],
+  "coverage": [
+    {
+      "source": "trae-personal",
+      "from": "2026-10-07",
+      "to": "2026-10-07",
+      "status": "partial",
+      "note": "合成演示资料"
+    }
+  ]
+}

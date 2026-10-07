@@ -1,0 +1,156 @@
+{
+  "id": "aicalendar",
+  "name": "AICalendar",
+  "description": "回顾与 AI 的每一次交流与探索。",
+  "icon": "/aicalendar/apple-touch-icon.png",
+  "url": "/aicalendar/",
+  "repo": "https://github.com/Crashmere/AICalendar",
+  "root": "/opt/aicalendar",
+  "port": 18086,
+  "user": "aicalendar",
+  "units": [
+    "aicalendar.service",
+    "aicalendar-backup.service",
+    "aicalendar-backup.timer"
+  ],
+  "database": "/opt/aicalendar/data/aicalendar.sqlite",
+  "backupKind": "sqlite",
+  "resources": [
+    {
+      "id": "data",
+      "name": "业务数据",
+      "path": "/opt/aicalendar/data",
+      "purpose": "AI 活动摘要、用户展示修改和导入批次；不保存平台凭据或原始聊天。",
+      "kind": "data",
+      "browse": true,
+      "cleanup": false
+    },
+    {
+      "id": "backups",
+      "name": "数据备份",
+      "path": "/opt/aicalendar/backups",
+      "purpose": "每日快照保留 14 份；发布前快照保留最近 5 份及受保护版本对应快照；手工备份不自动清理。",
+      "kind": "backups",
+      "browse": true,
+      "cleanup": true
+    },
+    {
+      "id": "releases",
+      "name": "部署版本",
+      "path": "/opt/aicalendar/releases",
+      "purpose": "保留最近 3 次成功发布和当前运行版本；已确认恢复的失败批次在后续成功发布且超过 7 天后清理。",
+      "kind": "releases",
+      "browse": true,
+      "cleanup": true
+    },
+    {
+      "id": "config",
+      "name": "运行配置",
+      "path": "/opt/aicalendar/config",
+      "purpose": "环境配置、systemd、Nginx 与资源声明；不直接展示秘密。",
+      "kind": "config",
+      "browse": false,
+      "cleanup": false
+    },
+    {
+      "id": "bin",
+      "name": "服务程序",
+      "path": "/opt/aicalendar/bin",
+      "purpose": "当前应用程序及固定维护/发布脚本。",
+      "kind": "binaries",
+      "browse": false,
+      "cleanup": false
+    },
+    {
+      "id": "docs",
+      "name": "维护文档",
+      "path": "/opt/aicalendar/docs",
+      "purpose": "架构、API、运维与恢复说明。",
+      "kind": "documents",
+      "browse": true,
+      "cleanup": false
+    }
+  ],
+  "apis": [
+    {
+      "method": "GET",
+      "path": "/healthz",
+      "description": "数据库连接健康"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/schema",
+      "description": "Import JSON schema"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/imports/preview",
+      "description": "Validate and preview a batch"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/imports",
+      "description": "Atomic idempotent import"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/imports",
+      "description": "List import batches and coverage"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/imports/{id}",
+      "description": "Get batch result"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/activities",
+      "description": "Query activities with offset/limit"
+    },
+    {
+      "method": "GET",
+      "path": "/ingest/v1/schema",
+      "description": "Import JSON schema"
+    },
+    {
+      "method": "POST",
+      "path": "/ingest/v1/imports/preview",
+      "description": "Validate and preview a batch"
+    },
+    {
+      "method": "POST",
+      "path": "/ingest/v1/imports",
+      "description": "Atomic idempotent import"
+    },
+    {
+      "method": "GET",
+      "path": "/ingest/v1/imports",
+      "description": "List import batches and coverage"
+    },
+    {
+      "method": "GET",
+      "path": "/ingest/v1/imports/{id}",
+      "description": "Get batch result"
+    },
+    {
+      "method": "GET",
+      "path": "/ingest/v1/activities",
+      "description": "Query activities with offset/limit"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/info",
+      "description": "Application date/timezone"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/export",
+      "description": "Export records and annotations"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/activities/{id}/annotation",
+      "description": "Replace user annotation with optimistic version check"
+    }
+  ]
+}

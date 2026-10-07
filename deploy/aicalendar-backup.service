@@ -1,0 +1,15 @@
+[Unit]
+Description=AICalendar daily SQLite backup
+
+[Service]
+Type=oneshot
+User=aicalendar
+Group=aicalendar
+EnvironmentFile=/opt/aicalendar/config/aicalendar.env
+ExecStart=/usr/bin/flock --shared /run/lock/ali-release-retention.lock /opt/aicalendar/bin/backup.sh
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/opt/aicalendar/data /opt/aicalendar/backups

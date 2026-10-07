@@ -1,0 +1,10 @@
+[Unit]
+Description=Back up AICalendar daily at 04:15 Beijing time
+
+[Timer]
+OnCalendar=*-*-* 04:15:00 Asia/Shanghai
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

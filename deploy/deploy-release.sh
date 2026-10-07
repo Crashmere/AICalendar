@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+set -euo pipefail
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+umask 077
+
+# The deployment identity may publish only this application's bounded declaration.
+# All validation and atomic publication logic belongs to ServerPortal/server-operations.
+if [[ $EUID -eq 0 && $# -eq 3 && ( $1 == portal || $1 == portal-check ) && $2 =~ ^[0-9a-f]{40}$ && $3 =~ ^[0-9a-f]{64}$ ]]; then
+  portal_action=register
+  if [[ $1 == portal-check ]]; then portal_action=check-registration; fi
+  exec timeout 45 /opt/serverportal/bin/portal "$portal_action" --app aicalendar --commit "$2" --sha256 "$3"
+fi
+
+
+# 此脚本由 root 安装和维护；本机可发送程序和受校验的本应用声明，不能更新本脚本。
+if [[ $EUID -ne 0 || $# -ne 2 || ! $1 =~ ^[0-9a-f]{40}$ || ! $2 =~ ^[0-9a-f]{64}$ ]]; then
+  printf 'Usage: deploy-release.sh <commit-sha> <binary-sha256> < binary\n' >&2
+  exit 64
+fi
+commit=$1
+expected=$2
+app=/opt/aicalendar
+database=$app/data/aicalendar.sqlite
+exec 9>/run/lock/aicalendar-deploy.lock
+flock -n 9 || { printf 'Another deployment is running.\n' >&2; exit 75; }
+test -f "$database"
+test -x "$app/bin/aicalendar"
+install -d -m 0755 "$app/releases"
+release=$(mktemp -d "$app/releases/$commit.XXXXXX")
+chmod 0755 "$release"
+stopped=false
+replaced=false
+
+healthy() {
+  systemctl is-active --quiet aicalendar &&
+    curl --fail --silent --show-error --max-time 3 http://127.0.0.1:18086/healthz | grep -q '"status":"ok"' &&
+    curl --fail --silent --show-error --max-time 3 http://127.0.0.1/aicalendar/ | grep -q '/aicalendar/assets/'
+}
+wait_healthy() {
+  for ((attempt=0; attempt<20; attempt++)); do
+    if healthy; then return 0; fi
+    sleep 1
+  done
+  return 1
+}
+finish() {
+  result=$?
+  trap - EXIT HUP INT TERM
+  recovery_status=not-needed
+  if [[ $result -ne 0 && $stopped == true ]]; then
+    recovery_status=failed
+    printf 'Deployment failed; restarting the previous program. Database is not restored.\n' >&2
+    systemctl stop aicalendar || true
+    if [[ $replaced == true ]]; then
+      install -m 0755 "$release/previous" "$app/bin/aicalendar.rollback"
+      mv -f "$app/bin/aicalendar.rollback" "$app/bin/aicalendar"
+    fi
+    if systemctl start aicalendar && wait_healthy; then
+      recovery_status=healthy
+      printf 'Previous program is healthy.\n' >&2
+    else
+      printf 'ROLLBACK FAILED: inspect journalctl -u aicalendar.\n' >&2
+    fi
+  fi
+  printf '%s\n' "$recovery_status" > "$release/recovery"
+  if [[ $result -eq 0 ]]; then printf 'success\n' > "$release/result";
+  else printf 'failed\n' > "$release/result"; fi
+  exit "$result"
+}
+trap finish EXIT
+trap 'exit 130' INT
+trap 'exit 143' HUP TERM
+
+# 限制上传时间和大小；校验完成前不触碰运行中的程序。
+timeout 90 head -c 67108865 > "$release/aicalendar"
+size=$(stat -c %s "$release/aicalendar")
+if ((size == 0 || size > 67108864)); then
+  printf 'Binary must be between 1 byte and 64 MiB.\n' >&2; exit 65
+fi
+actual=$(sha256sum "$release/aicalendar")
+if [[ ${actual%% *} != "$expected" ]]; then
+  printf 'Binary checksum mismatch.\n' >&2; exit 65
+fi
+chmod 0755 "$release/aicalendar"
+cp "$app/bin/aicalendar" "$release/previous"
+chmod 0755 "$release/previous"
+printf 'commit=%s\nsha256=%s\n' "$commit" "$expected" > "$release/metadata"
+
+# 旧程序备份，候选程序校验；两者都以 aicalendar 身份运行，绝不以 root 执行上传内容。
+backup="$app/backups/before-deploy-$(basename "$release").sqlite"
+stopped=true
+systemctl stop aicalendar
+runuser -u aicalendar -- timeout 60 "$app/bin/aicalendar" backup --db "$database" --out "$backup"
+runuser -u aicalendar -- timeout 30 "$release/aicalendar" check --db "$backup"
+install -m 0755 "$release/aicalendar" "$app/bin/aicalendar.next"
+replaced=true
+mv -f "$app/bin/aicalendar.next" "$app/bin/aicalendar"
+systemctl start aicalendar
+wait_healthy
+printf '%s\n' "$commit" > "$app/current-commit"
+chmod 0644 "$app/current-commit"
+printf 'Deployed %s; backup: %s\n' "$commit" "$backup"
