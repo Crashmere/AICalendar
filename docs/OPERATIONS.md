@@ -7,7 +7,7 @@
 - `bin/aicalendar`：Go 单文件服务，嵌入前端和 API Schema。
 - `config/aicalendar.env`：数据库、监听、前缀、正式 Origin、token 哈希文件位置。
 - `config/import-token.sha256`：导入 token 的 SHA-256，root:aicalendar 0640；原文只保留在维护端私有目录。
-- `data/aicalendar.sqlite`：记录、注释和导入审计；data/backups 0700。
+- `data/aicalendar.sqlite`：记录、注释、导入审计及完整聊天存档/上传分块/阅读索引；data/backups 0700。
 - `backups/`：原生一致性 SQLite 快照。
 - `releases/`：发布材料，遵守共享 3/5 保留策略。
 
@@ -15,7 +15,7 @@
 
 ## 启动与诊断
 
-serve 不自动建库，不自动迁移。只有 init 可显式创建新数据库，目标必须不存在。诊断先查 `systemctl status aicalendar`、`journalctl -u aicalendar`、回环 `/healthz` 与配置路径；不能通过创建空库“修复”数据丢失。
+serve 不自动建库，不自动迁移。完整聊天扩展通过 migrate-archives 显式添加，升级与旧程序兼容性见 [ARCHIVES.md](ARCHIVES.md)。只有 init 可显式创建新数据库，目标必须不存在。诊断先查 `systemctl status aicalendar`、`journalctl -u aicalendar`、回环 `/healthz` 与配置路径；不能通过创建空库“修复”数据丢失。
 
 页面/API 公网未登录应由门户返回登录跳转或 401。`/ingest/v1/activities` 无 token 必须 401；有 token 才能取得本应用数据。网页写请求 Origin 必须精确匹配正式地址。
 
@@ -33,7 +33,7 @@ aicalendar restore --from /path/backup.sqlite --db /new/path/restored.sqlite
 
 backup 使用 VACUUM INTO 一致性快照，包含已提交 WAL 数据，目标必须不存在；check 使用只读连接检查 schema、完整性、外键与必要表；restore 只生成独立新副本。程序回退不恢复数据，真实恢复需确认时点并按停写替换流程执行。
 
-每日快照与生产同盘；异机保障沿用服务器现有方案，不能把同盘快照当作异机备份。原始平台导出和本地聊天历史不在本服务备份范围。
+每日快照与生产同盘；异机保障沿用服务器现有方案，不能把同盘快照当作异机备份。已上传的原始导出和完整聊天包含在数据库备份中；尚未上传的本地资料不在服务备份范围。
 
 ## 门户、图标与文档
 

@@ -30,6 +30,17 @@ release.sh 复用 server-operations/scripts/release.py，配置在 release.json�
 
 受限 SSH 用户仅能执行 deploy、portal-check、portal 三类命令，固定 root 脚本不允许上传者改写。发布先验证大小/哈希、停止本应用、旧程序备份、以运行用户校验候选，再原子替换启动；失败恢复旧程序，不回滚数据库。日志记录 recovery 与 result。
 
+### 首次启用完整聊天存档
+
+此版本追加 archive_schema 1，核心 user_version 仍为 1。先在隔离库验证迁移和旧程序兼容，再按共享授权执行一次显式扩展；普通 make deploy 不自动迁移数据库。
+
+1. 完成本次验证、提交推送和 make release。通过管理员 SSH 上传同提交 program 到独立暂存目录，核对 manifest 中的 SHA-256，让 aicalendar 运行用户可执行候选。
+2. 用当前生产程序的 backup 命令创建 `backups/before-archive-extension-<timestamp>.sqlite` 一致性快照；用旧程序 check 校验，记录旧活动与注释的数量/内容摘要。
+3. 以 aicalendar 身份执行候选的 `migrate-archives --db /opt/aicalendar/data/aicalendar.sqlite`，再用候选和旧程序分别 check。核对核心 user_version 不变，旧活动/注释未改；新表不存在历史记录。迁移只增表，允许重复执行。
+4. 正常 make deploy；核对存档 Schema、授权列表、未授权拒绝和门户声明。清理本次暂存程序，保留升级前快照。旧程序可回退且会保留存档表和字节，但不提供存档接口。
+
+本扩展复用原数据库和所有备份，不新增存储根目录，不更改 Nginx 请求限制、运行身份或 root 发布脚本。格式与完整性约束见 [ARCHIVES.md](ARCHIVES.md)。
+
 ## 回退与配置
 
 `make rollback COMMIT=<完整旧提交>` 复用同一发布保护。先确认旧程序与 schema 兼容。真实数据恢复独立确认，使用恢复到新目录的已验证快照。

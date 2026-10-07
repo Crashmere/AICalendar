@@ -29,7 +29,7 @@ func env(k, v string) string {
 }
 func run() error {
 	if len(os.Args) < 2 {
-		return fmt.Errorf("usage: aicalendar init|serve|check|backup|restore|token")
+		return fmt.Errorf("usage: aicalendar init|serve|check|backup|restore|migrate-archives|token")
 	}
 	cmd := os.Args[1]
 	flags := flag.NewFlagSet(cmd, flag.ContinueOnError)
@@ -46,6 +46,8 @@ func run() error {
 	}
 	ctx := context.Background()
 	switch cmd {
+	case "migrate-archives":
+		return calendar.MigrateArchives(ctx, *db)
 	case "token":
 		if *out == "" {
 			return fmt.Errorf("--out required; token will not be printed")

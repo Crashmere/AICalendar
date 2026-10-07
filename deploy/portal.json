@@ -20,7 +20,7 @@
       "id": "data",
       "name": "业务数据",
       "path": "/opt/aicalendar/data",
-      "purpose": "AI 活动摘要、用户展示修改和导入批次；不保存平台凭据或原始聊天。",
+      "purpose": "AI 活动摘要、用户展示修改、导入批次、完整聊天和原始导出存档；不保存平台登录凭据。",
       "kind": "data",
       "browse": true,
       "cleanup": false
@@ -151,6 +151,86 @@
       "method": "PATCH",
       "path": "/api/v1/activities/{id}/annotation",
       "description": "Replace user annotation with optimistic version check"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/archives",
+      "description": "List committed conversation snapshots"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/archives/schema",
+      "description": "Conversation archive schema"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/archives/prepare",
+      "description": "Prepare an immutable resumable archive"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/archives/{id}",
+      "description": "Get archive state and received parts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/archives/{id}/parts",
+      "description": "Upload a checksummed 384 KiB part"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/archives/{id}/commit",
+      "description": "Verify full archive and atomically publish"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/archives/{id}/messages",
+      "description": "Read message fragments with cursor pagination"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/archives/{id}/download",
+      "description": "Download complete gzip JSONL archive"
+    },
+    {
+      "method": "GET",
+      "path": "/ingest/v1/archives",
+      "description": "List committed conversation snapshots"
+    },
+    {
+      "method": "GET",
+      "path": "/ingest/v1/archives/schema",
+      "description": "Conversation archive schema"
+    },
+    {
+      "method": "POST",
+      "path": "/ingest/v1/archives/prepare",
+      "description": "Prepare an immutable resumable archive"
+    },
+    {
+      "method": "GET",
+      "path": "/ingest/v1/archives/{id}",
+      "description": "Get archive state and received parts"
+    },
+    {
+      "method": "POST",
+      "path": "/ingest/v1/archives/{id}/parts",
+      "description": "Upload a checksummed 384 KiB part"
+    },
+    {
+      "method": "POST",
+      "path": "/ingest/v1/archives/{id}/commit",
+      "description": "Verify full archive and atomically publish"
+    },
+    {
+      "method": "GET",
+      "path": "/ingest/v1/archives/{id}/messages",
+      "description": "Read message fragments with cursor pagination"
+    },
+    {
+      "method": "GET",
+      "path": "/ingest/v1/archives/{id}/download",
+      "description": "Download complete gzip JSONL archive"
     }
   ]
 }

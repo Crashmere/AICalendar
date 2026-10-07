@@ -64,6 +64,7 @@ func (s *Server) Handler() http.Handler {
 		writeJSON(w, 200, map[string]string{"status": "ok"})
 	})
 	for _, prefix := range []string{"/api/v1", "/ingest/v1"} {
+		s.archiveRoutes(mux, prefix)
 		mux.HandleFunc("GET "+prefix+"/schema", func(w http.ResponseWriter, r *http.Request) {
 			b, e := api.Files.ReadFile("import.schema.json")
 			if e != nil {

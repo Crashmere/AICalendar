@@ -35,3 +35,5 @@ make build
 - [手动导入 skill](https://github.com/Crashmere/agent-config/tree/main/skills/ai-calendar-import)
 
 GitHub 保存源码和配置，推送不触发生产部署。真实数据、凭据和备份均不在仓库内。
+
+完整聊天支持逐条阅读、不可变快照、压缩分块上传和原始文件按字节取回。手动导入 skill 默认同时归档完整会话，详情见 [完整聊天存档](docs/ARCHIVES.md)。

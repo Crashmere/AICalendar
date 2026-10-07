@@ -1,0 +1,282 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Crashmere/AICalendar/blob/main/api/archive.schema.json",
+  "title": "Conversation archive manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "source": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,79}$"
+    },
+    "conversation_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+    },
+    "title": {
+      "type": "string",
+      "maxLength": 160
+    },
+    "captured_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "coverage": {
+      "type": "string",
+      "enum": [
+        "complete",
+        "partial",
+        "unknown"
+      ]
+    },
+    "note": {
+      "type": "string",
+      "maxLength": 4000
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 134217728
+    },
+    "parts": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 342
+    },
+    "expanded_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "expanded_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 536870912
+    },
+    "message_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 200000
+    },
+    "source_count": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    },
+    "source_label": {
+      "type": "string",
+      "maxLength": 80,
+      "description": "User supplied origin tag, independent of content identity"
+    }
+  },
+  "required": [
+    "schema_version",
+    "source",
+    "conversation_id",
+    "title",
+    "captured_at",
+    "coverage",
+    "note",
+    "sha256",
+    "bytes",
+    "parts",
+    "expanded_sha256",
+    "expanded_bytes",
+    "message_count",
+    "source_count"
+  ],
+  "$defs": {
+    "header": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "header"
+        },
+        "format": {
+          "const": "aicalendar.conversation.v1"
+        },
+        "source": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,79}$"
+        },
+        "conversation_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "name": {
+                "type": "string"
+              },
+              "media_type": {
+                "type": "string"
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "parts": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "media_type",
+              "bytes",
+              "sha256",
+              "parts"
+            ]
+          }
+        }
+      },
+      "required": [
+        "type",
+        "format",
+        "source",
+        "conversation_id",
+        "title",
+        "sources"
+      ]
+    },
+    "message": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "message"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "user",
+            "assistant",
+            "tool",
+            "system",
+            "developer",
+            "unknown"
+          ]
+        },
+        "at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "content": {
+          "type": "string",
+          "description": "Exact text fragment, at most 65536 UTF-8 bytes"
+        },
+        "part": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "parts": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "attributes": {}
+      },
+      "required": [
+        "type",
+        "id",
+        "role",
+        "at",
+        "content",
+        "part",
+        "parts"
+      ]
+    },
+    "source_chunk": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "source_chunk"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "part": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "data": {
+          "type": "string",
+          "contentEncoding": "base64",
+          "description": "Exact source bytes, at most 393216 bytes per chunk"
+        }
+      },
+      "required": [
+        "type",
+        "id",
+        "part",
+        "data"
+      ]
+    },
+    "upload_part": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "data": {
+          "type": "string",
+          "contentEncoding": "base64"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "index",
+        "data",
+        "sha256"
+      ]
+    }
+  }
+}

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "AICalendar",
-    "version": "1.0.0"
+    "version": "1.1.0"
   },
   "servers": [
     {
@@ -555,6 +555,676 @@
             "description": "Version conflict"
           }
         }
+      }
+    },
+    "/api/v1/archives": {
+      "get": {
+        "summary": "List committed conversation snapshots",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid archive"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "409": {
+            "description": "Conflict or incomplete upload"
+          },
+          "503": {
+            "description": "Archive extension not enabled"
+          }
+        },
+        "parameters": [
+          {
+            "name": "source",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "conversation_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "label",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/archives/schema": {
+      "get": {
+        "summary": "Conversation archive schema",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid archive"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "409": {
+            "description": "Conflict or incomplete upload"
+          },
+          "503": {
+            "description": "Archive extension not enabled"
+          }
+        }
+      }
+    },
+    "/api/v1/archives/prepare": {
+      "post": {
+        "summary": "Prepare an immutable resumable archive",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid archive"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "409": {
+            "description": "Conflict or incomplete upload"
+          },
+          "503": {
+            "description": "Archive extension not enabled"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./archive.schema.json"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/archives/{id}": {
+      "get": {
+        "summary": "Get archive state and received parts",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid archive"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "409": {
+            "description": "Conflict or incomplete upload"
+          },
+          "503": {
+            "description": "Archive extension not enabled"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/archives/{id}/parts": {
+      "post": {
+        "summary": "Upload a checksummed 384 KiB part",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid archive"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "409": {
+            "description": "Conflict or incomplete upload"
+          },
+          "503": {
+            "description": "Archive extension not enabled"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./archive.schema.json#/$defs/upload_part"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/archives/{id}/commit": {
+      "post": {
+        "summary": "Verify full archive and atomically publish",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid archive"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "409": {
+            "description": "Conflict or incomplete upload"
+          },
+          "503": {
+            "description": "Archive extension not enabled"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/archives/{id}/messages": {
+      "get": {
+        "summary": "Read message fragments with cursor pagination",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid archive"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "409": {
+            "description": "Conflict or incomplete upload"
+          },
+          "503": {
+            "description": "Archive extension not enabled"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": -1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/archives/{id}/download": {
+      "get": {
+        "summary": "Download complete gzip JSONL archive",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/gzip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid archive"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "409": {
+            "description": "Conflict or incomplete upload"
+          },
+          "503": {
+            "description": "Archive extension not enabled"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        ]
+      }
+    },
+    "/ingest/v1/archives": {
+      "get": {
+        "summary": "List committed conversation snapshots",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid archive"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "409": {
+            "description": "Conflict or incomplete upload"
+          },
+          "503": {
+            "description": "Archive extension not enabled"
+          }
+        },
+        "security": [
+          {
+            "importToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "source",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "conversation_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "label",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/ingest/v1/archives/schema": {
+      "get": {
+        "summary": "Conversation archive schema",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid archive"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "409": {
+            "description": "Conflict or incomplete upload"
+          },
+          "503": {
+            "description": "Archive extension not enabled"
+          }
+        },
+        "security": [
+          {
+            "importToken": []
+          }
+        ]
+      }
+    },
+    "/ingest/v1/archives/prepare": {
+      "post": {
+        "summary": "Prepare an immutable resumable archive",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid archive"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "409": {
+            "description": "Conflict or incomplete upload"
+          },
+          "503": {
+            "description": "Archive extension not enabled"
+          }
+        },
+        "security": [
+          {
+            "importToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./archive.schema.json"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ingest/v1/archives/{id}": {
+      "get": {
+        "summary": "Get archive state and received parts",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid archive"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "409": {
+            "description": "Conflict or incomplete upload"
+          },
+          "503": {
+            "description": "Archive extension not enabled"
+          }
+        },
+        "security": [
+          {
+            "importToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        ]
+      }
+    },
+    "/ingest/v1/archives/{id}/parts": {
+      "post": {
+        "summary": "Upload a checksummed 384 KiB part",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid archive"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "409": {
+            "description": "Conflict or incomplete upload"
+          },
+          "503": {
+            "description": "Archive extension not enabled"
+          }
+        },
+        "security": [
+          {
+            "importToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./archive.schema.json#/$defs/upload_part"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        ]
+      }
+    },
+    "/ingest/v1/archives/{id}/commit": {
+      "post": {
+        "summary": "Verify full archive and atomically publish",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid archive"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "409": {
+            "description": "Conflict or incomplete upload"
+          },
+          "503": {
+            "description": "Archive extension not enabled"
+          }
+        },
+        "security": [
+          {
+            "importToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        ]
+      }
+    },
+    "/ingest/v1/archives/{id}/messages": {
+      "get": {
+        "summary": "Read message fragments with cursor pagination",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid archive"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "409": {
+            "description": "Conflict or incomplete upload"
+          },
+          "503": {
+            "description": "Archive extension not enabled"
+          }
+        },
+        "security": [
+          {
+            "importToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": -1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30
+            }
+          }
+        ]
+      }
+    },
+    "/ingest/v1/archives/{id}/download": {
+      "get": {
+        "summary": "Download complete gzip JSONL archive",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/gzip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid archive"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "409": {
+            "description": "Conflict or incomplete upload"
+          },
+          "503": {
+            "description": "Archive extension not enabled"
+          }
+        },
+        "security": [
+          {
+            "importToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        ]
       }
     }
   }

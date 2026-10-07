@@ -194,6 +194,11 @@
           "expected_version": {
             "type": "integer",
             "minimum": 1
+          },
+          "source_label": {
+            "type": "string",
+            "maxLength": 80,
+            "description": "User supplied display label; distinct from the stable source key"
           }
         },
         "required": [

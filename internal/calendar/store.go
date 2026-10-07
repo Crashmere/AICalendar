@@ -54,7 +54,7 @@ func Open(path string, create bool) (*Store, error) {
 	db.SetMaxOpenConns(1)
 	s := &Store{db: db}
 	if create {
-		_, e = db.Exec("BEGIN;" + schema + "COMMIT;")
+		_, e = db.Exec("BEGIN;" + schema + archiveSchema + "COMMIT;")
 	} else {
 		var v int
 		e = db.QueryRow("PRAGMA user_version").Scan(&v)
@@ -263,11 +263,11 @@ func (s *Store) Activities(ctx context.Context, f Filter) ([]Activity, error) {
 		if a.Annotation.Tags != nil {
 			tags = *a.Annotation.Tags
 		}
-		if f.Query != "" && !strings.Contains(strings.ToLower(title+" "+summary+" "+strings.Join(tags, " ")), strings.ToLower(f.Query)) {
+		if f.Query != "" && !strings.Contains(strings.ToLower(title+" "+summary+" "+a.Record.SourceLabel+" "+strings.Join(tags, " ")), strings.ToLower(f.Query)) {
 			continue
 		}
 		if f.Tag != "" {
-			found := false
+			found := a.Record.SourceLabel == f.Tag
 			for _, t := range tags {
 				if t == f.Tag {
 					found = true
@@ -385,6 +385,22 @@ func CheckFile(ctx context.Context, path string) error {
 		var n int
 		if e = db.QueryRowContext(ctx, "SELECT count(*) FROM "+t).Scan(&n); e != nil {
 			return e
+		}
+	}
+	var archiveTables int
+	if e = db.QueryRowContext(ctx, "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='archive_schema'").Scan(&archiveTables); e != nil {
+		return e
+	}
+	if archiveTables > 0 {
+		var version int
+		if e = db.QueryRowContext(ctx, "SELECT version FROM archive_schema").Scan(&version); e != nil || version != 1 {
+			return fmt.Errorf("invalid archive schema: version %d, %v", version, e)
+		}
+		for _, table := range []string{"conversation_archives", "archive_parts", "archive_messages"} {
+			var count int
+			if e = db.QueryRowContext(ctx, "SELECT count(*) FROM "+table).Scan(&count); e != nil {
+				return e
+			}
 		}
 	}
 	rows, e := db.QueryContext(ctx, "PRAGMA foreign_key_check")

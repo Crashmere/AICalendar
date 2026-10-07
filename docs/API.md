@@ -24,7 +24,7 @@
 
 activities 参数：`from`、`to`（YYYY-MM-DD，包含边界）、`source`、`q`、`tag`、`include_hidden=true`、`offset`、`limit`（1–5000，默认 500）。返回 `{items,total,offset,limit}`。每项含 `id`、来源 `version`、`annotation_version`、`record`、`annotation`、`updated_at`。
 
-q 搜索最终展示的标题、摘要和标签；用户注释优先于来源值。返回的 record 保持原始规范化来源，方便重新导入核对；隐藏项默认不返回。
+q 搜索最终展示的标题、摘要、主题标签和来源标签；用户注释优先于来源值。tag 精确匹配主题标签或 source_label。返回的 record 保持原始规范化来源，方便重新导入核对；隐藏项默认不返回。
 
 ## 导入
 
@@ -33,6 +33,8 @@ q 搜索最终展示的标题、摘要和标签；用户注释优先于来源值
 默认 insert_only；相同唯一键与内容为 unchanged，不同内容为 conflict。upsert 更新已有记录必须提供 expected_version。次数是完整快照，不能增量相加。服务拒绝减少/清空已知次数、observed 次数降级、final 降为 partial、删除已知时间/时段、更换会话/日期/时区。
 
 记录必须提供有意义的质量说明。time 支持 observed_interval、observed_timestamps、estimated_interaction_span、date_only、unknown；无区间依据时 spans 为空。日期与时区是记录身份的一部分。来源 source 支持字母数字及 `_.-`，external_id 由整理端稳定生成。
+
+可选 source_label 是用户指定的展示来源，例如“ChatGPT · 个人账号”或“Trae · 工作电脑”，去除首尾空白后最多 80 字。日历显示该标签并允许筛选；省略时显示 source。source 继续作为稳定的来源/账户命名空间，不能随标签改名。更新标签使用普通 upsert 和 expected_version，不更换 external_id、不增加次数；手动注释中的主题标签与来源标签独立。
 
 预览返回 200，冲突数量在 conflicts；写入遇到冲突返回 409、committed=false，整批无变更。成功回执包含 id、时间、inserted/updated/unchanged 和逐项 ID/版本。相同幂等键、相同请求重试返回 replay=true；同键不同请求返回 409。
 
@@ -45,3 +47,7 @@ PATCH 请求为 `{expected_version: <annotation_version>, annotation: {...}}`，
 ## 导出与恢复
 
 导出结构为 `{schema_version,exported_at,activities,imports}`，其中 activities 包含 record 与 annotation。导出包不是直接导入请求；重导需提取 record，再显式规划注释恢复。完整恢复使用 SQLite 一致性备份；JSON 导出不能代替运行配置与导入审计的完整备份。
+
+## 完整聊天
+
+日历导入 v1 保持兼容。完整聊天使用同一认证命名空间中的 `/archives` 系列接口，以不可变会话快照保存统一消息和原始导出；分块格式、校验、分页阅读与下载见 [ARCHIVES.md](ARCHIVES.md)，Schema 为 `api/archive.schema.json`。

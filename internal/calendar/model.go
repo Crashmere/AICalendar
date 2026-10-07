@@ -27,6 +27,7 @@ type Provenance struct {
 	ProducedAt string `json:"produced_at,omitempty"`
 }
 type Record struct {
+	SourceLabel      string     `json:"source_label,omitempty"`
 	Source           string     `json:"source"`
 	ExternalID       string     `json:"external_id"`
 	ConversationID   string     `json:"conversation_id,omitempty"`
@@ -138,6 +139,10 @@ func cleanTags(tags []string) ([]string, error) {
 	return result, nil
 }
 func normalizeRecord(r *Record) error {
+	r.SourceLabel = strings.TrimSpace(r.SourceLabel)
+	if len([]rune(r.SourceLabel)) > 80 {
+		return invalid("来源标签最长 80 字")
+	}
 	if !sourcePattern.MatchString(r.Source) {
 		return invalid("source 需为 1–80 位字母、数字、点、下划线或短横线")
 	}
