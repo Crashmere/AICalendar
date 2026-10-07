@@ -34,6 +34,8 @@ q 搜索最终展示的标题、摘要、主题标签和来源标签；用户注
 
 记录必须提供有意义的质量说明。time 支持 observed_interval、observed_timestamps、estimated_interaction_span、date_only、unknown；无区间依据时 spans 为空。日期与时区是记录身份的一部分。来源 source 支持字母数字及 `_.-`，external_id 由整理端稳定生成。
 
+`record_state` 是单条记录的整理进度：待整理用 partial，所选资料已整理完成用 final。它独立于来源范围 `coverage[].status` 和聊天存档 `manifest.coverage`；来源覆盖 partial 不要求记录也为 partial。final 记录仍可按版本补充新资料，详见 [记录整理状态](DESIGN.md#记录整理状态)。
+
 可选 source_label 是用户指定的展示来源，例如“ChatGPT · 个人账号”或“Trae · 工作电脑”，去除首尾空白后最多 80 字。日历显示该标签并允许筛选；省略时显示 source。source 继续作为稳定的来源/账户命名空间，不能随标签改名。更新标签使用普通 upsert 和 expected_version，不更换 external_id、不增加次数；手动注释中的主题标签与来源标签独立。
 
 预览返回 200，冲突数量在 conflicts；写入遇到冲突返回 409、committed=false，整批无变更。成功回执包含 id、时间、inserted/updated/unchanged 和逐项 ID/版本。相同幂等键、相同请求重试返回 replay=true；同键不同请求返回 409。
