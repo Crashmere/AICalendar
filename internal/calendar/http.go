@@ -1,6 +1,7 @@
 package calendar
 
 import (
+	"compress/gzip"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
@@ -153,6 +154,9 @@ func (s *Server) Handler() http.Handler {
 			info, _ := f.Stat()
 			f.Close()
 			if info != nil && !info.IsDir() {
+				if strings.HasPrefix(name, "assets/") {
+					w.Header().Set("Cache-Control", "private, max-age=31536000, immutable")
+				}
 				http.FileServer(http.FS(assets)).ServeHTTP(w, r)
 				return
 			}
@@ -204,8 +208,39 @@ func (s *Server) Handler() http.Handler {
 				return
 			}
 		}
+		if r.Method == "GET" && (strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/ingest/")) && !strings.HasSuffix(r.URL.Path, "/download") && strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			gz := &gzipResponse{ResponseWriter: w}
+			defer gz.Close()
+			w = gz
+		}
 		mux.ServeHTTP(w, r)
 	})
+}
+
+type gzipResponse struct {
+	http.ResponseWriter
+	writer *gzip.Writer
+}
+
+func (g *gzipResponse) WriteHeader(status int) {
+	if g.writer == nil {
+		g.Header().Del("Content-Length")
+		g.Header().Set("Content-Encoding", "gzip")
+		g.Header().Add("Vary", "Accept-Encoding")
+		g.writer, _ = gzip.NewWriterLevel(g.ResponseWriter, gzip.BestSpeed)
+	}
+	g.ResponseWriter.WriteHeader(status)
+}
+func (g *gzipResponse) Write(p []byte) (int, error) {
+	if g.writer == nil {
+		g.WriteHeader(http.StatusOK)
+	}
+	return g.writer.Write(p)
+}
+func (g *gzipResponse) Close() {
+	if g.writer != nil {
+		g.writer.Close()
+	}
 }
 func (s *Server) importHandler(commit bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

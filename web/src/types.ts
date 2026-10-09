@@ -4,3 +4,8 @@ export interface Annotation {title?:string;summary?:string;tags?:string[];hidden
 export interface Activity {id:string;version:number;annotation_version:number;record:RecordData;annotation:Annotation;updated_at:string}
 export interface Coverage {source:string;from:string;to:string;status:string;note?:string}
 export interface ImportResult {id?:string;created_at?:string;committed:boolean;replay:boolean;inserted:number;updated:number;unchanged:number;conflicts:number;items?:{source:string;external_id:string;action:string;reason?:string}[];coverage:Coverage[]}
+export interface Snapshot {id:string;manifest:{source:string;source_label?:string;conversation_id:string;title:string;captured_at:string;coverage:string;note:string;bytes:number;message_count:number;source_count:number};committed_at:string}
+export interface Message {id:string;role:string;at:string|null;content:string;part:number;parts:number;attributes?:Record<string,unknown>}
+export interface ChatTarget {source:string;conversationId:string;date?:string;snapshotId?:string}
+export interface DaySummary {date:string;items:Activity[];messages:number;unknown:boolean;top:Activity;sources:string[]}
+export interface Conversation {key:string;source:string;sourceName:string;conversationId:string;title:string;first:string;last:string;days:number;messages:number;unknown:boolean}

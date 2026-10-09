@@ -31,8 +31,8 @@
 | POST /archives/{id}/parts | 上传 index、data(base64)、sha256；同编号同内容可重试，不允许替换 |
 | POST /archives/{id}/commit | 校验分块、gzip、统一消息、原始文件顺序/大小/哈希，完整通过后原子提交 |
 | GET /archives/{id} | 查询状态、清单及未完成上传的 received_parts |
-| GET /archives | 仅列已完成快照；source、conversation_id、label（来源标签关键词）、offset、limit，最多 100 条 |
-| GET /archives/{id}/messages | 读取原样消息分段，after 默认 -1，limit 默认 20/最多 30；返回 next_after、has_more |
+| GET /archives | 仅列已完成快照；source、conversation_id、label（来源标签关键词）、q（标题或来源标签关键词）、offset、limit，最多 100 条 |
+| GET /archives/{id}/messages | 读取原样消息分段，after 默认 -1，limit 默认 20/最多 200；单页累计约 2 MiB 后提前结束（至少 1 段），以 has_more 判断是否继续；返回 next_after、has_more |
 | GET /archives/{id}/download | 下载完整 .jsonl.gz，支持 HEAD，需认证 |
 
 清单包含 source、可选 source_label、conversation_id、title、captured_at、coverage、note、压缩及展开后的 bytes/SHA-256、parts、message_count、source_count。ID 由来源、会话和压缩内容哈希确定；captured_at 的重复打包时间差不新增同内容副本。对同一文件重新 prepare 可通过非空 source_label 更新标签，省略或空值保留已有标签，存档 ID 和数量不变。其他清单差异冲突；内容新增或修订保存新快照，旧快照不覆盖。
@@ -43,10 +43,10 @@ prepare/parts 不会出现在聊天列表，commit 事务失败不留下可见�
 
 ## 存储、备份与升级
 
-所有存档都在现有 `data/aicalendar.sqlite` 中：conversation_archives 保存清单/状态，archive_parts 保存 gzip 文件分块，archive_messages 保存消息分段的压缩阅读索引。没有新增数据目录或备份类型。原始文件和索引随 SQLite 原生一致性快照、每日备份和门户备份一起保存。
+所有存档都在现有 `data/aicalendar.sqlite` 中：conversation_archives 保存清单/状态，archive_parts 保存 gzip 文件分块，archive_messages 保存消息分段的压缩阅读索引。没有新增数据目录或备份类型。存档不进入每日备份和发布前备份：快照只包含日历记录、注释与导入审计，以及空的存档表结构，见 [运维](OPERATIONS.md#备份与恢复)。
 
 这是核心 schema 1 上的附加 archive_schema version 1。新 init 一并建表；已有库用 `migrate-archives --db <existing>` 显式事务添加，不重写旧活动/注释，不更改核心 user_version。旧程序仍能打开、展示旧数据并完整备份数据库，但没有存档接口；回退不删除新增表和已存档内容。
 
 升级前使用当前程序生成原生备份，再以 aicalendar 身份运行同提交候选的 migrate-archives，检查备份与扩展，随后按正常 make deploy 发布。未启用扩展时旧功能保持可用，存档接口返回 503。迁移可重复执行；不能通过创建空库修复失败。check 接受原核心库，存在扩展时也检查扩展版本、表和 SQLite 完整性/外键。
 
-原文不自动过期或删除。快照会随内容变化增长，来源重复内容由 gzip 压缩但不同快照仍独立保存；每日备份与发布备份继续按原有策略保留。需要真正删除或压缩历史存档时单独设计明确的数据维护操作。
+原文不自动过期或删除。快照会随内容变化增长，来源重复内容由 gzip 压缩但不同快照仍独立保存。需要真正删除或压缩历史存档时单独设计明确的数据维护操作。

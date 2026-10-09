@@ -413,25 +413,68 @@ func CheckFile(ctx context.Context, path string) error {
 	}
 	return rows.Err()
 }
-func (s *Store) Backup(ctx context.Context, path string) (err error) {
+func newFile(path string) (string, error) {
 	p, e := filepath.Abs(path)
 	if e != nil {
-		return e
+		return "", e
 	}
 	if e = os.MkdirAll(filepath.Dir(p), 0700); e != nil {
-		return e
+		return "", e
 	}
 	f, e := os.OpenFile(p, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if e != nil {
-		return e
+		return "", e
 	}
-	f.Close()
+	return p, f.Close()
+}
+
+// Backup snapshots records, annotations and import audit. Conversation archives
+// are deliberately excluded; the snapshot keeps their empty tables so a restored
+// database still serves the archive API.
+func (s *Store) Backup(ctx context.Context, path string) (err error) {
+	p, err := newFile(path)
+	if err != nil {
+		return err
+	}
 	defer func() {
 		if err != nil {
 			os.Remove(p)
 		}
 	}()
-	if _, err = s.db.ExecContext(ctx, "VACUUM INTO ?", p); err != nil {
+	target, err := sql.Open("sqlite", (&url.URL{Scheme: "file", Path: p, RawQuery: "mode=rw"}).String())
+	if err != nil {
+		return err
+	}
+	_, err = target.ExecContext(ctx, "BEGIN;"+schema+archiveSchema+"COMMIT;")
+	if e := target.Close(); err == nil {
+		err = e
+	}
+	if err != nil {
+		return err
+	}
+	conn, err := s.db.Conn(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	if _, err = conn.ExecContext(ctx, "ATTACH DATABASE ? AS snapshot", p); err != nil {
+		return err
+	}
+	defer conn.ExecContext(context.Background(), "DETACH DATABASE snapshot")
+	tx, err := conn.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, table := range []string{"activities", "import_batches", "import_changes"} {
+		if _, err = tx.ExecContext(ctx, "INSERT INTO snapshot."+table+" SELECT * FROM main."+table); err != nil {
+			return err
+		}
+	}
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+	if _, err = conn.ExecContext(ctx, "DETACH DATABASE snapshot"); err != nil {
 		return err
 	}
 	return CheckFile(ctx, p)
@@ -450,5 +493,15 @@ func Restore(ctx context.Context, source, destination string) error {
 		return e
 	}
 	defer db.Close()
-	return (&Store{db: db}).Backup(ctx, destination)
+	p, err := newFile(destination)
+	if err != nil {
+		return err
+	}
+	if _, err = db.ExecContext(ctx, "VACUUM INTO ?", p); err == nil {
+		err = CheckFile(ctx, p)
+	}
+	if err != nil {
+		os.Remove(p)
+	}
+	return err
 }

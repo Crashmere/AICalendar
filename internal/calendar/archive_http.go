@@ -50,7 +50,7 @@ func (s *Server) archiveRoutes(mux *http.ServeMux, prefix string) {
 		if limit < 1 || limit > 100 {
 			limit = 50
 		}
-		items, e := s.Store.Archives(r.Context(), q.Get("source"), q.Get("conversation_id"), q.Get("label"), offset, limit)
+		items, e := s.Store.Archives(r.Context(), q.Get("source"), q.Get("conversation_id"), q.Get("label"), q.Get("q"), offset, limit)
 		if e != nil {
 			fail(w, e)
 			return
@@ -104,15 +104,15 @@ func (s *Server) archiveRoutes(mux *http.ServeMux, prefix string) {
 			after = n
 		}
 		limit, _ := strconv.Atoi(q.Get("limit"))
-		if limit < 1 || limit > 30 {
+		if limit < 1 || limit > 200 {
 			limit = 20
 		}
-		items, next, e := s.Store.ArchiveMessages(r.Context(), r.PathValue("id"), after, limit)
+		items, next, more, e := s.Store.ArchiveMessages(r.Context(), r.PathValue("id"), after, limit)
 		if e != nil {
 			fail(w, e)
 			return
 		}
-		writeJSON(w, 200, map[string]any{"items": items, "next_after": next, "has_more": len(items) == limit})
+		writeJSON(w, 200, map[string]any{"items": items, "next_after": next, "has_more": more})
 	}))
 	mux.HandleFunc("GET "+prefix+"/archives/{id}/download", ready(func(w http.ResponseWriter, r *http.Request) {
 		a, e := s.Store.Archive(r.Context(), r.PathValue("id"))

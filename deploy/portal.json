@@ -29,7 +29,7 @@
       "id": "backups",
       "name": "数据备份",
       "path": "/opt/aicalendar/backups",
-      "purpose": "每日快照保留 14 份；发布前快照保留最近 5 份及受保护版本对应快照；手工备份不自动清理。",
+      "purpose": "日历记录、注释与导入审计的快照，不含完整聊天存档；每日快照保留 14 份；发布前快照保留最近 5 份及受保护版本对应快照；手工备份不自动清理。",
       "kind": "backups",
       "browse": true,
       "cleanup": true

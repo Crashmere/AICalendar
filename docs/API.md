@@ -20,6 +20,8 @@
 
 健康检查为 `GET /healthz`，由回环发布检查使用，公网仍需要门户认证。
 
+两个前缀的 GET JSON 响应在请求带 `Accept-Encoding: gzip` 时压缩返回（`Vary: Accept-Encoding`）；存档下载保持原始字节，不再压缩。
+
 ## 查询
 
 activities 参数：`from`、`to`（YYYY-MM-DD，包含边界）、`source`、`q`、`tag`、`include_hidden=true`、`offset`、`limit`（1–5000，默认 500）。返回 `{items,total,offset,limit}`。每项含 `id`、来源 `version`、`annotation_version`、`record`、`annotation`、`updated_at`。
@@ -48,8 +50,8 @@ PATCH 请求为 `{expected_version: <annotation_version>, annotation: {...}}`，
 
 ## 导出与恢复
 
-导出结构为 `{schema_version,exported_at,activities,imports}`，其中 activities 包含 record 与 annotation。导出包不是直接导入请求；重导需提取 record，再显式规划注释恢复。完整恢复使用 SQLite 一致性备份；JSON 导出不能代替运行配置与导入审计的完整备份。
+导出结构为 `{schema_version,exported_at,activities,imports}`，其中 activities 包含 record 与 annotation。导出包不是直接导入请求；重导需提取 record，再显式规划注释恢复。日历记录、注释与导入审计的恢复使用 SQLite 一致性备份（不含完整聊天存档，见 [OPERATIONS.md](OPERATIONS.md)）；JSON 导出不能代替它。
 
 ## 完整聊天
 
-日历导入 v1 保持兼容。完整聊天使用同一认证命名空间中的 `/archives` 系列接口，以不可变会话快照保存统一消息和原始导出；分块格式、校验、分页阅读与下载见 [ARCHIVES.md](ARCHIVES.md)，Schema 为 `api/archive.schema.json`。
+日历导入 v1 保持兼容。完整聊天使用同一认证命名空间中的 `/archives` 系列接口，以不可变会话快照保存统一消息和原始导出；分块格式、校验、标题搜索（`q`）、分页阅读（每页最多 200 条且约 2 MiB）与下载见 [ARCHIVES.md](ARCHIVES.md)，Schema 为 `api/archive.schema.json`。

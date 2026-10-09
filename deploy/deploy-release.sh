@@ -90,8 +90,8 @@ printf 'commit=%s\nsha256=%s\n' "$commit" "$expected" > "$release/metadata"
 backup="$app/backups/before-deploy-$(basename "$release").sqlite"
 stopped=true
 systemctl stop aicalendar
-runuser -u aicalendar -- timeout 60 "$app/bin/aicalendar" backup --db "$database" --out "$backup"
-runuser -u aicalendar -- timeout 30 "$release/aicalendar" check --db "$backup"
+runuser -u aicalendar -- timeout 600 "$app/bin/aicalendar" backup --db "$database" --out "$backup"
+runuser -u aicalendar -- timeout 300 "$release/aicalendar" check --db "$backup"
 install -m 0755 "$release/aicalendar" "$app/bin/aicalendar.next"
 replaced=true
 mv -f "$app/bin/aicalendar.next" "$app/bin/aicalendar"

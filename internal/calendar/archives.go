@@ -456,8 +456,8 @@ func sameTimestamp(a, b *string) bool {
 	}
 	return *a == *b
 }
-func (s *Store) Archives(ctx context.Context, source, conversation, label string, offset, limit int) ([]Archive, error) {
-	rows, e := s.db.QueryContext(ctx, "SELECT "+archiveColumns+" FROM conversation_archives WHERE state='committed' AND (?='' OR source=?) AND (?='' OR conversation_id=?) AND (?='' OR COALESCE(json_extract(manifest_json,'$.source_label'),'') LIKE '%'||?||'%') ORDER BY committed_at DESC,id LIMIT ? OFFSET ?", source, source, conversation, conversation, label, label, limit, offset)
+func (s *Store) Archives(ctx context.Context, source, conversation, label, query string, offset, limit int) ([]Archive, error) {
+	rows, e := s.db.QueryContext(ctx, "SELECT "+archiveColumns+" FROM conversation_archives WHERE state='committed' AND (?='' OR source=?) AND (?='' OR conversation_id=?) AND (?='' OR COALESCE(json_extract(manifest_json,'$.source_label'),'') LIKE '%'||?||'%') AND (?='' OR (COALESCE(json_extract(manifest_json,'$.title'),'')||' '||COALESCE(json_extract(manifest_json,'$.source_label'),'')) LIKE '%'||?||'%') ORDER BY committed_at DESC,id LIMIT ? OFFSET ?", source, source, conversation, conversation, label, label, query, query, limit, offset)
 	if e != nil {
 		return nil, e
 	}
@@ -472,38 +472,45 @@ func (s *Store) Archives(ctx context.Context, source, conversation, label string
 	}
 	return out, rows.Err()
 }
-func (s *Store) ArchiveMessages(ctx context.Context, id string, after, limit int) ([]json.RawMessage, int, error) {
+// archiveMessagesBudget bounds one response; at least one fragment is always returned.
+const archiveMessagesBudget = 2 * 1024 * 1024
+
+func (s *Store) ArchiveMessages(ctx context.Context, id string, after, limit int) ([]json.RawMessage, int, bool, error) {
 	a, e := s.Archive(ctx, id)
 	if e != nil {
-		return nil, after, e
+		return nil, after, false, e
 	}
 	if a.State != "committed" {
-		return nil, after, conflict("存档尚未完成")
+		return nil, after, false, conflict("存档尚未完成")
 	}
-	rows, e := s.db.QueryContext(ctx, "SELECT ordinal,message_json FROM archive_messages WHERE archive_id=? AND ordinal>? ORDER BY ordinal LIMIT ?", id, after, limit)
+	rows, e := s.db.QueryContext(ctx, "SELECT ordinal,message_json FROM archive_messages WHERE archive_id=? AND ordinal>? ORDER BY ordinal LIMIT ?", id, after, limit+1)
 	if e != nil {
-		return nil, after, e
+		return nil, after, false, e
 	}
 	defer rows.Close()
 	out := []json.RawMessage{}
-	next := after
+	next, size := after, 0
 	for rows.Next() {
+		if len(out) == limit || (len(out) > 0 && size >= archiveMessagesBudget) {
+			return out, next, true, nil
+		}
 		var raw []byte
 		if e = rows.Scan(&next, &raw); e != nil {
-			return nil, next, e
+			return nil, next, false, e
 		}
 		gz, e := gzip.NewReader(bytes.NewReader(raw))
 		if e != nil {
-			return nil, next, e
+			return nil, next, false, e
 		}
 		data, e := io.ReadAll(io.LimitReader(gz, 1048577))
 		gz.Close()
 		if e != nil {
-			return nil, next, e
+			return nil, next, false, e
 		}
+		size += len(data)
 		out = append(out, json.RawMessage(data))
 	}
-	return out, next, rows.Err()
+	return out, next, false, rows.Err()
 }
 func (s *Store) WriteArchive(ctx context.Context, a Archive, w io.Writer) error {
 	if a.State != "committed" {
