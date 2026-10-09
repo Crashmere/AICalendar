@@ -111,6 +111,14 @@ function goToday(){
  setRange(k==='month'?monthRange(y,m):k==='quarter'?quarterRange(y,Math.floor((m-1)/3)+1):k==='year'?yearRange(y):k==='custom'?customRange(addDays(today.value,-diffDays(current.value.from,current.value.to)),today.value):range.value)
  selected.value=today.value
 }
+const dayPanel=ref<HTMLElement|null>(null)
+async function selectDay(d:string){
+ selected.value=d
+ await nextTick()
+ const el=dayPanel.value
+ const top=el?.getBoundingClientRect().top
+ if(top!==undefined&&top>innerHeight-160)scrollBy({top:top-Math.max(12,innerHeight-360),behavior:'smooth'})
+}
 function toggleSource(s:string){sources.value=sources.value.includes(s)?sources.value.filter(x=>x!==s):[...sources.value,s]}
 function clearFilters(){q.value='';sources.value=[];tags.value=[]}
 function openChat(t:ChatTarget){chat.value=t}
@@ -189,11 +197,12 @@ onMounted(async()=>{readURL();window.addEventListener('popstate',readURL);docume
      <div class="stat"><span>会话<Layers :size="16"/></span><strong>{{number(now.conversations)}}<small>个</small></strong><p>{{delta(now.conversations,previous?.conversations)||'同一会话跨天只计一次'}}</p></div>
      <div class="stat"><span>主题记录<Clock :size="16"/></span><strong>{{number(now.topics)}}<small>条</small></strong><p>{{delta(now.topics,previous?.topics)||'每个会话每天一条'}}</p></div>
     </section>
-    <section v-if="view==='calendar'" class="workspace calendar-layout">
-     <CalendarView :range="current" :days="days" :selected="selected" :today="today" :level="level" @select="selected=$event" @range="setRange"/>
-     <aside class="day-panel">
-      <div class="day-panel-heading"><div><h2>{{dayLabel(selected)}}</h2><p>{{selected.slice(0,4)}} 年 · {{weekdayName(selected)}}<span v-if="selected===today"> · 今天</span></p></div><span v-if="dayItems.length" class="day-badge">{{day?.unknown&&!day?.messages?'次数未知':number(day?.messages||0)+' 次'}} · {{dayItems.length}} 条</span></div>
-      <div v-if="mergedMinutes(dayItems)!==null" class="duration-note"><Clock :size="13"/>互动区间合计约 {{mergedMinutes(dayItems)}} 分钟<span title="按可恢复区间去重合并，不代表本人专注时间">ⓘ</span></div>
+    <template v-if="view==='calendar'">
+    <section class="workspace">
+     <CalendarView :range="current" :days="days" :selected="selected" :today="today" :level="level" @select="selectDay" @range="setRange"/>
+    </section>
+    <section ref="dayPanel" class="workspace day-panel">
+      <div class="day-panel-heading"><h2>{{dayLabel(selected)}}</h2><p>{{selected.slice(0,4)}} 年 · {{weekdayName(selected)}}<span v-if="selected===today"> · 今天</span></p><span v-if="dayItems.length" class="day-badge">{{day?.unknown&&!day?.messages?'次数未知':number(day?.messages||0)+' 次'}} · {{dayItems.length}} 条</span><span v-if="mergedMinutes(dayItems)!==null" class="duration-note"><Clock :size="13"/>互动区间合计约 {{mergedMinutes(dayItems)}} 分钟<span title="按可恢复区间去重合并，不代表本人专注时间">ⓘ</span></span></div>
       <div v-if="!dayItems.length" class="empty-state compact"><CalendarDays :size="32"/><h3>{{narrowing||sources.length?'这天没有匹配的记录':dayCoverage.length?'这天没有记录':'这一天，还待整理'}}</h3><p>{{narrowing||sources.length?'试试调整筛选条件。':dayCoverage.length?'已有来源的导入范围覆盖这一天。':'未导入的日期不代表没有使用。'}}</p></div>
       <div v-else class="timeline">
        <button v-for="a in dayItems" :key="a.id" class="activity-card" :class="{muted:a.annotation.hidden}" @click="detail=a">
@@ -203,8 +212,8 @@ onMounted(async()=>{readURL();window.addEventListener('popstate',readURL);docume
        </button>
       </div>
       <p v-if="dayCoverage.length" class="coverage-note">已有 {{new Set(dayCoverage.map(c=>c.source)).size}} 个来源的导入范围覆盖此日{{dayCoverage.some(c=>c.status!=='complete')?'，其中部分资料不完整':''}}。</p>
-     </aside>
     </section>
+    </template>
     <section v-else-if="view==='records'" class="workspace records-list">
      <div v-if="!recordDays.length" class="empty-state"><Search :size="34"/><h3>{{label}}内没有匹配的记录</h3><p>换个时间范围或调整筛选条件。</p></div>
      <template v-for="g in recordDays" :key="g.date">
