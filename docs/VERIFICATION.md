@@ -1,41 +1,41 @@
-# 验证范围
+# Verification Scope
 
-2026-10-07：首版已在 ali 的 `/aicalendar/` 上线，public 源码仓库已创建；正式服务使用新建空库。
+2026-10-07: the first version was deployed to `/aicalendar/` on `ali`, and the public source repository was created. The production service used a newly created empty database.
 
-已验证：前端类型检查与构建、Go 构建；合成 JSON 经 skill 生成固定计划、分批导入、持久化回执与记录回读；同键重试去重、同键不同请求拒绝、乐观版本更新、冲突整批回滚、已知次数降低拒绝、手动标题/标签和隐藏状态在重导后保留、Origin 与 token 拒绝路径。
+Verified: frontend type checking and build, Go build; generation of a fixed plan by the skill from synthetic JSON, batch import, persisted receipts, and record read-back; deduplication when retrying the same key, rejection of different requests under the same key, optimistic-version updates, whole-batch rollback on conflict, rejection of reducing a known count, preservation of manual title/tags and hidden state across reimport, and Origin/token rejection paths.
 
-SQLite 已在合成数据上运行 backup → restore 到新路径 → check。真实业务数据未用于写入测试。
+SQLite `backup` → `restore` to a new path → `check` was run against synthetic data. Real business data was not used in write tests.
 
-个人 skill 已通过官方格式校验；本机 Trae 只读提取能生成私有候选文件和片段上下文，明确报告缺失日志、fallback 与覆盖不完整。提取结果没有导入生产。
+The personal skill passed official format validation. Local read-only Trae extraction can generate private candidate files and fragment context and explicitly reports missing logs, fallback behavior, and incomplete coverage. Extracted results were not imported into production.
 
-Chromium 已验证桌面 1440px 与手机 375×667：无横向溢出，无页面脚本错误；搜索、日历、编辑与导入弹窗可用；普通 Tab / Shift+Tab 保持输入焦点，无焦点轮廓。手机检查是浏览器窄屏验证，不冒充 iPhone 添加桌面真机验收。
+Chromium verified 1440px desktop and 375×667 phone layouts: no horizontal overflow or page-script errors; search, calendar, editing, and import dialogs worked; ordinary Tab / Shift+Tab retained input focus with no focus outline. The phone check is narrow-screen browser verification and must not be presented as real-iPhone Home Screen acceptance.
 
-独立 agent 使用专用合成来源完整运行 skill：首次导入、同计划重放、重新生成同输入计划、次数从 2 更新到 3（不累加成 5）、未知次数、更新后旧计划重放、次数下降冲突全部符合协议。旧回执遇到较新版本会报告 superseded_records，不误报失败；冲突预览退出码为 2。未模拟实际断网或大规模并发。
+An independent agent used a dedicated synthetic source to exercise the skill end to end: first import, replay of the same plan, regeneration of a plan from the same input, updating a count from 2 to 3 without adding it to become 5, an unknown count, replaying an old plan after the update, and a count-reduction conflict all matched the protocol. When an old receipt encounters a newer version it reports `superseded_records` rather than a false failure; conflict preview exits with code 2. Real network interruption and large-scale concurrency were not simulated.
 
-生产已完成：受限身份正常发布、程序版本登记、门户声明预检与加载哈希回执、独立导入凭据只读查询和预览、systemd 开机自启、04:15 每日备份首跑与完整性检查。正式数据库仍为空；没有导入调研中的真实聊天。全部七站回环健康与公网未授权 API 检查通过；页面导航跳转门户登录，导入 Bearer 不能用于浏览器 API。图标匿名 GET/HEAD 及类型/尺寸检查通过。共享 Nginx 配置校验与平滑重载成功，原有应用未重启。
+Completed in production: normal release through the restricted identity, program-version registration, portal-declaration preflight and loaded-hash receipt, read-only queries and previews through the independent import credential, systemd boot enablement, and the first 04:15 daily backup plus integrity check. The production database was still empty; none of the real chats from research were imported. Loopback health for all seven sites and public unauthenticated API checks passed. Page navigation redirected to portal login, and the import Bearer could not access the browser API. Anonymous icon GET/HEAD plus type/dimension checks passed. Shared Nginx configuration validation and graceful reload succeeded, and existing applications were not restarted.
 
-备份恢复已用本地合成库验证；不将其表述为生产真实数据恢复或整机恢复验收。原有暂缓的门户备份下载/恢复任务未启动。
+Backup recovery was validated with a local synthetic database; it must not be described as restoration of real production data or whole-server recovery acceptance. The previously deferred portal-backup download/recovery task was not started.
 
-## 完整聊天与来源标签
+## Full Conversations and Source Labels
 
-2026-10-08 本地验证：完整存档保存统一消息和原始资料；468000 字节 Unicode/emoji 长消息、空消息、工具结构文本及 1200000 字节二进制原件均经下载/解包逐字节或逐消息核对。原始文件名正确保留。反复上传相同内容不新增快照，追加消息保留新旧两版。
+Local verification on 2026-10-08: full archives preserved normalized messages and original materials. A 468000-byte Unicode/emoji long message, an empty message, structured tool text, and a 1200000-byte binary original were compared byte-for-byte or message-by-message after download and unpacking. Original filenames were preserved correctly. Repeated uploads of identical content did not add a snapshot, while appending a message retained both old and new versions.
 
-独立 agent 按 skill 完成 pack → prepare → submit → 下载 → unpack，再导入日历摘要。首块已接收后模拟进程退出，新进程只补传缺失块；未完成快照不在列表出现，下载返回 409。篡改固定计划、原文件、覆盖既有计划/解包目录均拒绝。刻意制造外层哈希正确但原始来源哈希错误的存档，提交返回 400 且没有可见消息索引。
+An independent agent completed pack → prepare → submit → download → unpack through the skill, followed by calendar-summary import. After the first chunk was accepted, process exit was simulated; the new process uploaded only missing chunks. Incomplete snapshots did not appear in the list, and download returned 409. Tampering with the fixed plan or original file, and overwriting an existing plan or unpack directory, were all rejected. An archive deliberately constructed with a correct outer hash but an incorrect original-source hash returned 400 on commit and left no visible message index.
 
-来源标签在日历、存档列表与详情展示；日历 q/tag 和存档 label 可筛选。首尾空白规范化；同存档仅更新标签，ID 和份数不变；日历标签 upsert 后记录 ID 和次数不变。Chromium 桌面与 375×667 手机模拟完成关联会话打开、存档分页界面、来源筛选、Tab/Shift+Tab、无焦点轮廓、无横向溢出及 HTML 转义检查，无页面脚本错误。
+Source labels were displayed in calendar, archive list, and details; calendar `q`/`tag` and archive `label` filtering worked. Leading/trailing whitespace normalization worked. Updating only a label on the same archive left its ID and archive count unchanged. After a calendar-label upsert, record ID and counts remained unchanged. Chromium desktop and 375×667 phone emulation covered opening linked conversations, the archive pagination interface, source filtering, Tab/Shift+Tab, no focus outline, no horizontal overflow, and HTML escaping, with no page-script errors.
 
-SQLite 一致性备份 → 恢复到新路径 → check 后存档压缩字节哈希不变。旧合成数据库重复追加迁移后核心 user_version 仍为 1，活动与注释逐列不变。另用一条小型真实 Trae 会话仅在本地验证 3 条用户、3 条 AI 消息及两份来源文件哈希；未上传到服务。
+After SQLite consistent backup → restoration to a new path → `check`, the archived compressed-byte hash was unchanged. Repeated additive migration of an old synthetic database left core `user_version` at 1 and every activity and annotation column unchanged. Separately, one small real Trae conversation was used only locally to verify three user messages, three AI messages, and the hashes of two source files; it was not uploaded to the service.
 
-前端类型检查/Vite、Go 构建及 go vet 通过。未执行 128 MiB/512 MiB 极限容量、大规模并发或真实外网断网测试；模拟中断测试不等同于这些场景。
+Frontend type checking/Vite, Go build, and `go vet` passed. The 128 MiB/512 MiB capacity limits, large-scale concurrency, and a real public-network outage were not tested; simulated interruption is not equivalent to these scenarios.
 
-2026-10-08 已发布程序提交 `6159b2cfc77633d0a3faa72c30590ba938969101`。升级前旧程序生成独立一致性备份；同提交候选以运行用户执行追加迁移，新旧程序均通过 check。核心 user_version 保持 1，活动、批次和变更表的数量与内容摘要完全相同，archive_schema 为 1。正常受限发布又生成一份包含扩展的备份，并通过候选与上线程序完整性检查。
+Commit `6159b2cfc77633d0a3faa72c30590ba938969101` was released on 2026-10-08. Before upgrade, the old program created an independent consistent backup. A candidate from the same commit ran the additive migration as the runtime user, and both new and old programs passed `check`. Core `user_version` remained 1. Counts and content digests for the activity, batch, and change tables were identical, and `archive_schema` was 1. The normal restricted release created another backup containing the extension, which passed integrity checks with both the candidate and deployed program.
 
-生产回环健康、已部署前端聊天存档/来源标签、导入凭据读取两份 Schema 与空列表均通过。
+Production loopback health, the deployed frontend's conversation archive/source-label functionality, and import-credential reads of both schemas and empty lists all passed.
 
-## 时间范围、展示与备份范围
+## Time Range, Presentation, and Backup Scope
 
-2026-10-09 本地验证：前端通过只读隧道读取生产数据，Chromium 桌面 1440px 与 375×667 检查月/季/年/自定义/全部时间、前后平移、URL 恢复、跨全部时间搜索与范围外提示、年度热力图、标签多选、只读详情、存档会话列表和导入覆盖时间轴；无横向溢出，文字不小于 11px，Tab / Shift+Tab 拦截、无焦点轮廓。阅读器抽查 TraeX、ChatGPT、Cursor 会话：JSON 正文、思考与工具调用、引用标记按预期处理，Markdown 无溢出。编辑保存只在本地合成库验证：仅发 PATCH 并原地更新列表。
+Local verification on 2026-10-09: through a read-only tunnel, the frontend read production data. Chromium desktop at 1440px and a 375×667 layout checked month/quarter/year/custom/all-time ranges, previous/next shifting, URL restoration, search across all time with out-of-range notices, the annual heatmap, tag multi-select, read-only details, the archived-conversation list, and the import-coverage timeline. There was no horizontal overflow, text was at least 11px, Tab / Shift+Tab was intercepted, and there was no focus outline. Reader spot checks covered TraeX, ChatGPT, and Cursor conversations: JSON bodies, reasoning and tool calls, and citation markers were handled as expected, and Markdown did not overflow. Editing and saving were verified only with a local synthetic database: it sent only PATCH and updated the list in place.
 
-后端在临时合成库验证：存档标题/来源标签 `q`、消息 limit=200 翻页与 `has_more`、约 2 MiB 单页截断、JSON gzip 与 Vary，下载不压缩。备份只复制活动、批次和变更三表，结果与源表一致、存档表为空；`check`、`restore` 到新路径通过，服务运行中备份正常。
+The backend was verified against a temporary synthetic database: archive title/source-label `q`, message pagination with `limit=200` and `has_more`, the approximately 2 MiB page cutoff, JSON gzip and `Vary`, and uncompressed downloads. Backups copied only the activity, batch, and change tables. Those tables matched the source, archive tables were empty, `check` passed, restoration to a new path passed, and backup worked while the service was running.
 
-2026-10-09 已发布 `d66d65fd4251b1f29ac8ac55470c3c16cfe72c26`。旧程序生成完整发布前备份约需 2 分钟，发布脚本备份/校验超时已放宽为 600/300 秒并重装。回环健康、gzip（活动列表 2.1 MB → 354 KB）、存档 `q`、资源长期缓存、未授权页面/API 401、图标匿名访问与门户加载哈希回执通过。手动运行每日备份 Result=success：7.8 MB，check 通过，三表行数与正式库一致。用户确认后删除旧的完整每日备份与本次完整发布前备份，备份目录约 7.6 MB。未授权存档列表/Schema/下载和日历 API 返回 401；导入凭据不能访问浏览器 API。门户已加载新声明哈希 `42e536a64f4545274ddd1fd65dbbea9ea49eed6301d39969c96294467d62d1bc`。服务和每日备份 timer 正常，最近备份 Result=success。生产活动和存档仍均为 0；本轮没有上传真实历史或用生产写入做测试。
+Commit `d66d65fd4251b1f29ac8ac55470c3c16cfe72c26` was released on 2026-10-09. The old program took approximately two minutes to create a complete pre-release backup, so release-script backup/verification timeouts were increased to 600/300 seconds and reinstalled. Loopback health, gzip (activity list 2.1 MB → 354 KB), archive `q`, long-term resource caching, unauthenticated page/API 401 responses, anonymous icon access, and the portal loaded-hash receipt all passed. A manual run of the daily backup had `Result=success`: 7.8 MB, passed `check`, and had the same three-table row counts as production. After user confirmation, the old complete daily backup and this complete pre-release backup were deleted, reducing the backup directory to approximately 7.6 MB. Unauthenticated archive list/schema/download and calendar API requests returned 401. The import credential could not access the browser API. The portal loaded new declaration hash `42e536a64f4545274ddd1fd65dbbea9ea49eed6301d39969c96294467d62d1bc`. The service and daily backup timer were normal, with the most recent backup showing `Result=success`. Production activities and archives were still both 0; this work did not upload real history or use production writes for testing.

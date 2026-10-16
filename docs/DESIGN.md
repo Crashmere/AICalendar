@@ -1,61 +1,61 @@
-# 设计
+# Design
 
-## 边界
+## Boundaries
 
-一条日历记录对应一个来源会话在一个自然日的活动摘要；完整聊天另存为会话快照并关联，格式与上传流程见 [完整聊天存档](ARCHIVES.md)。来源是自由命名的账户空间，外部 agent 对各平台资料做转换；服务不持有平台凭据、不调用摘要模型、不持续采集。
+One calendar record corresponds to an activity summary for one source conversation on one calendar day. Full conversations are stored separately as linked conversation snapshots; see [Full Conversation Archives](ARCHIVES.md) for formats and upload procedures. A source is a freely named account namespace, and an external agent transforms material from each platform. The service does not hold platform credentials, invoke summarization models, or collect continuously.
 
-日期、来源、会话标识、发送次数与质量说明来自整理资料。标题、摘要、标签用于回顾；用户可在网页修改展示内容，来源记录仍保留。
+Dates, sources, conversation identifiers, send counts, and quality notes come from the organized material. Titles, summaries, and tags support review. The user can edit display content on the web, while source records remain preserved.
 
-## 存储
+## Storage
 
-SQLite 核心 schema 1；完整聊天使用附加 archive_schema version 1：
+SQLite core schema 1; full conversations use the additional `archive_schema` version 1:
 
-- `activities`：唯一 source/external_id、日期、规范化 record JSON、内容摘要、来源版本、注释 JSON 与独立注释版本。
-- `import_batches`：唯一幂等键、规范化请求摘要、提交结果和覆盖范围。
-- `import_changes`：每个实际变更的旧 Activity 快照与新来源记录，供维护时审计；第一版没有自动撤销 API。
+- `activities`: unique `source`/`external_id`, date, normalized record JSON, content digest, source version, annotation JSON, and independent annotation version.
+- `import_batches`: unique idempotency key, normalized request digest, commit result, and coverage range.
+- `import_changes`: old Activity snapshot and new source record for every actual change, available for maintenance audits; the first version has no automatic undo API.
 
-单进程、单数据库连接，写入以进程互斥与数据库事务序列化。导入先检查整批：存在任一冲突则全部不写入。重复请求返回持久化回执；并发不同请求的更新需满足 expected_version。
+A single process uses a single database connection. Process mutexes and database transactions serialize writes. An import first validates the entire batch; if any conflict exists, nothing is written. Repeated requests return a persisted receipt. Concurrent updates from different requests must satisfy `expected_version`.
 
-记录内容摘要忽略 `expected_version` 和 `provenance.produced_at`，因此仅重新整理时间变化不会产生新来源版本。批次请求摘要保留完整规范化请求，幂等键复用到不同内容会返回冲突。
+The record content digest ignores `expected_version` and `provenance.produced_at`, so changing only the reorganization time does not create a new source version. The batch request digest retains the complete normalized request; reusing an idempotency key for different content returns a conflict.
 
-## 次数与时间
+## Counts and Time
 
-- 用户发送次数包含执行中追加的消息，不包含子 agent、工具、压缩或自动续跑。
-- unknown 次数为 null，不显示为已知 0。observed 表示在所选资料中可直接辨认，不保证原平台完整保留历史。
-- `observed_timestamps` 表示已知发送时间点，但没有耗时依据；不生成 spans，不计算首尾差。
-- 有 spans 时，每日展示区间并集的近似分钟数，避免同日并行会话重复累加。它不是本人专注时长。
-- 时间接收带偏移的 RFC3339，规范化到 UTC；日历按记录声明的 IANA 时区校验，结束可以恰好在次日零点。
-- 月度会话数按来源+会话标识去重，活跃天仅根据有交流或交流次数未知的记录。缺少会话 ID 单独提示。
+- User-send counts include messages appended while an execution is running and exclude subagents, tools, compaction, and automatic continuation.
+- An `unknown` count is `null` and is not displayed as a known zero. `observed` means directly identifiable in the selected material and does not guarantee that the original platform retained complete history.
+- `observed_timestamps` represents known send times but provides no duration basis; it does not generate spans or calculate a first-to-last difference.
+- When spans exist, the daily view shows the approximate minutes in the union of intervals, avoiding duplicate counting for parallel conversations on the same day. This is not the user's focused time.
+- Time values accept RFC3339 with an offset and normalize to UTC. The calendar validates against the record's declared IANA time zone. An end time may fall exactly at midnight on the following day.
+- Monthly conversation counts are deduplicated by source plus conversation identifier. Active days are based only on records with interaction or an unknown interaction count. Missing conversation IDs are reported separately.
 
-## 导入覆盖
+## Import Coverage
 
-覆盖状态为 complete、partial、unknown，按来源和日期范围保存。没有记录不意味着没有使用；未导入日期不显示为确认的零。客户端把覆盖批次放在数据批次之后，前面失败时不会提交完整覆盖声明。
+Coverage status is `complete`, `partial`, or `unknown` and is stored by source and date range. No record does not mean no usage; an unimported date is not shown as a confirmed zero. The client places coverage batches after data batches so a preceding failure does not submit a complete-coverage declaration.
 
-## 记录整理状态
+## Record Organization State
 
-`record_state` 表示单条日历记录的整理进度，与来源覆盖范围和完整聊天快照的 `manifest.coverage` 分开：
+`record_state` represents the organization progress of an individual calendar record, separate from source coverage and the full-conversation snapshot's `manifest.coverage`:
 
-- `partial`：所选资料的当日快照仍待提取、审阅或补录；网页显示“待补全”或“记录待补全”。
-- `final`：所选资料的当日快照已完成整理，已知缺失与未知值均已如实注明；网页显示“已整理”。这不保证平台历史全部可取得，也不保证原导出包含所有图片或正文。
+- `partial`: the selected material's daily snapshot still awaits extraction, review, or completion; the web page displays the exact UI labels “待补全” or “记录待补全”.
+- `final`: the selected material's daily snapshot has been fully organized, with known omissions and unknown values recorded accurately; the web page displays the exact UI label “已整理”. This does not guarantee that all platform history is obtainable or that the original export contains every image or body.
 
-因此，已审阅完成的导出记录可以是 `record_state=final`，同时来源覆盖为 `partial`。不能仅因无法证明平台全部历史完整而把每条记录都标成待补全。后续取得新资料仍可用带版本检查的 upsert 补充 final 记录；既有的防降级规则继续生效。
+Therefore, a reviewed export record can have `record_state=final` while source coverage is `partial`. Do not mark every record as incomplete merely because complete platform history cannot be proven. If new material is obtained later, a `final` record can still be supplemented through an upsert with version checking; existing downgrade-prevention rules remain in effect.
 
-## 网页
+## Web Interface
 
-Vue 3 + Vite，资源内嵌 Go。启动时分页拉取全部记录，在浏览器内聚合；数据显著增长时再将汇总下推服务。
+Vue 3 + Vite, with assets embedded in Go. At startup, the browser fetches all records page by page and aggregates them locally; move aggregation into the service only when data grows significantly.
 
-- 时间范围：月、季、年、自定义起止与全部时间，支持预设和前后平移；62 天以内显示周网格，更长范围显示按年分组的小月历热力图。范围、视图、选中日、搜索、来源、标签和隐藏开关同步到 URL，可直接分享或回退。
-- 筛选：搜索与来源、标签（多选，包含任一）作用于全部记录；统计、日历、列表和会话只展示当前范围，并提示范围外的匹配数。进行中的范围与上一期同等天数对比。
-- 页面不设最大宽度；日历占满整行，选中日的记录在日历下方按宽度多列平铺。选中日期时若详情在视口外，只滚动到露出详情首行，日历仍部分可见。
-- 热力分级按全部活跃日发送次数的 40/70/90 分位；来源颜色固定，未知来源按名称散列。
-- 记录先只读展示，编辑在详情内切换；保存后原地替换该条，不重新拉取全部记录。来源与用户注释分离保持不变。
-- 聊天阅读：每页 200 条，合并分片，按日期分隔；Markdown 仅渲染 AI 回复，禁用 HTML、图片只显示文字。平台 JSON 消息（TraeX、ChatGPT、Claude、Cursor）提取正文，思考与工具调用归入可折叠组。给定日期时自动加载并定位。
-- 导入页按来源展示覆盖时间轴与实际记录跨度，批次按日期折叠。
+- Time range: month, quarter, year, custom start/end, and all time, with presets and previous/next shifting. Ranges of 62 days or less use a weekly grid; longer ranges use compact monthly heatmaps grouped by year. Range, view, selected day, search, source, tags, and hidden toggle are synchronized to the URL for direct sharing and back navigation.
+- Filters: search plus source and tags (multi-select, match any) apply to all records. Statistics, calendar, list, and conversations show only the current range and report matching records outside it. An ongoing range is compared with a preceding period of equal length.
+- The page has no maximum width. The calendar occupies the full row, and records for the selected day tile in multiple columns below it according to available width. If details are outside the viewport when a date is selected, scrolling reveals only the first detail row while keeping part of the calendar visible.
+- Heat levels use the 40th/70th/90th percentiles of send counts across all active days. Source colors are fixed; unknown sources are hashed by name.
+- Records are initially read-only. Editing toggles within details; after save, the item is replaced in place without refetching all records. Separation between source data and user annotations remains unchanged.
+- Chat reading: 200 items per page, merging segments and separating dates. Markdown is rendered only for AI replies; HTML is disabled, and images are represented only as text. Platform JSON messages from TraeX, ChatGPT, Claude, and Cursor have their body text extracted, while reasoning and tool calls go into collapsible groups. When a date is provided, the reader loads and navigates to it automatically.
+- The import page shows a coverage timeline and actual record span by source, with batches collapsed by date.
 
-`main.ts` 在 capture 阶段拦截无修饰键的 Tab / Shift+Tab，保留组合键与 IME；CSS 去除 focus outline/shadow，业务选中样式保留。图标源 favicon.svg 与标准库 PNG 生成脚本均入库。
+`main.ts` intercepts unmodified Tab / Shift+Tab during the capture phase while preserving modifier combinations and IME. CSS removes focus outlines and shadows, while business selection styles remain. The `favicon.svg` source and a standard-library PNG generation script are both committed.
 
-## 认证
+## Authentication
 
-只监听回环 IP。浏览器路由依赖共享 Nginx 的 ServerPortal 设备认证；写请求另要求精确 Origin。导入前缀 `/ingest/v1/` 使用服务自己的随机 Bearer token，服务端只保存 SHA-256；缺失或无效 token 一律 401。前缀提供存档分块上传、消息读取与完整存档下载；不提供网页注释编辑、删除、日历摘要导出或其他应用操作。
+The service listens only on a loopback IP. Browser routes rely on ServerPortal device authentication in shared Nginx, and write requests additionally require an exact Origin. The import prefix `/ingest/v1/` uses the service's own random Bearer token; the server stores only its SHA-256. A missing or invalid token always returns 401. The prefix provides chunked archive upload, message reads, and full-archive download. It does not provide web-annotation editing, deletion, calendar-summary export, or other application operations.
 
-Nginx 只在导入前缀关闭门户子请求，转由本应用强制认证；其他页面/API 保持门户保护。公开资源仅 favicon.svg 与 apple-touch-icon.png 的 GET/HEAD。应用不增加 add_header，保留共享 Cookie 续期继承。
+Nginx disables the portal subrequest only for the import prefix and delegates to this application to enforce authentication. All other pages and APIs remain protected by the portal. The only public resources are GET/HEAD for `favicon.svg` and `apple-touch-icon.png`. The application adds no `add_header`, preserving inherited shared-cookie renewal.

@@ -1,29 +1,29 @@
-# 运维
+# Operations
 
-## 服务形态
+## Service Shape
 
-项目 AICalendar，回环 `127.0.0.1:18086`，URL `/aicalendar/`，根目录 `/opt/aicalendar`。独立运行用户 aicalendar、受限发布用户 aicalendar-deploy。当前交付状态见 [验证记录](VERIFICATION.md)。
+The project is AICalendar, listening on loopback `127.0.0.1:18086` at URL `/aicalendar/`, with root directory `/opt/aicalendar`. It has dedicated runtime user `aicalendar` and restricted deployment user `aicalendar-deploy`. See the [Verification Record](VERIFICATION.md) for current delivery status.
 
-- `bin/aicalendar`：Go 单文件服务，嵌入前端和 API Schema。
-- `config/aicalendar.env`：数据库、监听、前缀、正式 Origin、token 哈希文件位置。
-- `config/import-token.sha256`：导入 token 的 SHA-256，root:aicalendar 0640；原文只保留在维护端私有目录。
-- `data/aicalendar.sqlite`：记录、注释、导入审计及完整聊天存档/上传分块/阅读索引；data/backups 0700。
-- `backups/`：原生一致性 SQLite 快照。
-- `releases/`：发布材料，遵守共享 3/5 保留策略。
+- `bin/aicalendar`: single-file Go service with the frontend and API schemas embedded.
+- `config/aicalendar.env`: database, listener, prefix, production Origin, and token-hash file location.
+- `config/import-token.sha256`: SHA-256 of the import token, root:aicalendar 0640; plaintext exists only in a private directory on the maintenance side.
+- `data/aicalendar.sqlite`: records, annotations, import audits, full-conversation archives/upload chunks/reading indexes; `data` and `backups` are 0700.
+- `backups/`: native consistent SQLite snapshots.
+- `releases/`: release materials under the shared 3/5 retention policy.
 
-服务进程限制 MemoryMax=192M、GOMEMLIMIT=144MiB，应用仅写自己的 data。前端在维护电脑构建，服务器不装 Node/Go。
+The service process has `MemoryMax=192M` and `GOMEMLIMIT=144MiB`, and the application writes only its own `data`. The frontend is built on the maintenance computer; Node/Go is not installed on the server.
 
-## 启动与诊断
+## Startup and Diagnostics
 
-serve 不自动建库，不自动迁移。完整聊天扩展通过 migrate-archives 显式添加，升级与旧程序兼容性见 [ARCHIVES.md](ARCHIVES.md)。只有 init 可显式创建新数据库，目标必须不存在。诊断先查 `systemctl status aicalendar`、`journalctl -u aicalendar`、回环 `/healthz` 与配置路径；不能通过创建空库“修复”数据丢失。
+`serve` does not create or migrate a database automatically. The full-conversation extension is added explicitly with `migrate-archives`; see [ARCHIVES.md](ARCHIVES.md) for upgrade and old-program compatibility. Only `init` may explicitly create a new database, and the destination must not exist. Diagnose first with `systemctl status aicalendar`, `journalctl -u aicalendar`, loopback `/healthz`, and configuration paths. Do not “repair” data loss by creating an empty database.
 
-页面/API 公网未登录应由门户返回登录跳转或 401。`/ingest/v1/activities` 无 token 必须 401；有 token 才能取得本应用数据。网页写请求 Origin 必须精确匹配正式地址。
+An unauthenticated public request to a page/API should receive a login redirect or 401 from the portal. `/ingest/v1/activities` must return 401 without a token and may return application data only with a token. The Origin of web write requests must exactly match the production address.
 
-token 轮换：在私有位置用 `aicalendar token --out <new-private-token>` 生成新 token/hash，对照授权后只替换服务器 hash 文件并重启本服务，同时更新维护端 token_file。旧 token 失效；不更改门户设备凭据。
+Token rotation: in a private location, use `aicalendar token --out <new-private-token>` to generate a new token and hash. After authorization is confirmed, replace only the server hash file, restart this service, and update the maintenance-side `token_file`. The old token becomes invalid. Portal device credentials do not change.
 
-## 备份与恢复
+## Backup and Recovery
 
-`aicalendar-backup.timer` 每天北京时间 04:15（加 0–5 分钟随机延迟）运行；daily 保留 14 份，新快照成功并检查后才轮换。backup.service 使用共享保留锁。门户 registry 自动发现原生 sqlite 备份契约。
+`aicalendar-backup.timer` runs daily at 04:15 Beijing time with a 0–5-minute randomized delay. `daily` retains 14 copies, rotating only after a new snapshot succeeds and passes checks. `backup.service` uses the shared retention lock. The portal registry automatically discovers the native SQLite backup contract.
 
 ```sh
 aicalendar backup --db /path/aicalendar.sqlite --out /new/path/backup.sqlite
@@ -31,14 +31,14 @@ aicalendar check --db /path/backup.sqlite
 aicalendar restore --from /path/backup.sqlite --db /new/path/restored.sqlite
 ```
 
-backup 在单个读事务内把 activities、import_batches、import_changes 复制到新库，包含已提交 WAL 数据，目标必须不存在。2026-10-09 用户确认：完整聊天存档体积大、回顾价值有限，不做备份；快照只建空的存档表，恢复后的库可继续接收新存档，但原有聊天与原始导出不会恢复。check 使用只读连接检查 schema、完整性、外键与必要表；restore 以 VACUUM INTO 把指定快照完整复制到独立新路径。程序回退不恢复数据，真实恢复需确认时点并按停写替换流程执行。
+Within one read transaction, `backup` copies `activities`, `import_batches`, and `import_changes` into a new database, including committed WAL data; the destination must not exist. User confirmation on 2026-10-09: full conversation archives are large and have limited review value, so they are not backed up. A snapshot creates only empty archive tables. A restored database can accept new archives, but previous chats and original exports are not restored. `check` uses a read-only connection to check schemas, integrity, foreign keys, and required tables. `restore` uses `VACUUM INTO` to copy the specified snapshot completely to a separate new path. Program rollback does not restore data; real restoration requires confirmation of the recovery point and a write-stop replacement procedure.
 
-每日快照与生产同盘；异机保障沿用服务器现有方案，不能把同盘快照当作异机备份。完整聊天和原始导出只存在于生产库，需要长期保留的原始资料由用户在本地自行留存；尚未上传的本地资料同样不在服务备份范围。
+Daily snapshots reside on the same disk as production. Off-machine protection follows the server's existing arrangement; do not present a same-disk snapshot as an off-machine backup. Full conversations and original exports exist only in the production database. The user must retain local copies of original material that requires long-term preservation; local material not yet uploaded is also outside the service's backup scope.
 
-## 门户、图标与文档
+## Portal, Icons, and Documentation
 
-资源声明维护源为 deploy/portal.json，正常发布会预检并同步到 `/opt/aicalendar/config/portal.json`，通过 registry.d 注册、核对加载回执。API 和资源改变时同步声明与 docs。
+The resource declaration's maintained source is `deploy/portal.json`. A normal release preflights and synchronizes it to `/opt/aicalendar/config/portal.json`, registers it through `registry.d`, and verifies the load receipt. When APIs or resources change, update the declaration and docs together.
 
-网站 favicon.svg 与 180×180 不透明 apple-touch-icon.png 位于 web/public；后者由 `python3 scripts/generate-icon.py` 可重建。Nginx 仅为这两个文件放行匿名 GET/HEAD。发布后用共享 check-site-icons.py 验证。
+The site `favicon.svg` and opaque 180×180 `apple-touch-icon.png` are in `web/public`; the latter can be rebuilt with `python3 scripts/generate-icon.py`. Nginx allows anonymous GET/HEAD only for these two files. After release, verify them with the shared `check-site-icons.py`.
 
-共享规则、发布、认证与保留策略从 [server-operations](https://github.com/Crashmere/agent-config/tree/main/skills/server-operations) 读取。提交推送后运行其 `scripts/sync-docs.sh AICalendar`；普通二进制发布不同步 docs。
+Read shared rules, release, authentication, and retention policies from [server-operations](https://github.com/Crashmere/agent-config/tree/main/skills/server-operations). After committing and pushing, run its `scripts/sync-docs.sh AICalendar`; an ordinary binary release does not synchronize docs.

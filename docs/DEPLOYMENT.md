@@ -1,22 +1,22 @@
-# 本机部署
+# Local Deployment
 
-遵循 [server-operations release](https://github.com/Crashmere/agent-config/blob/main/skills/server-operations/references/release.md)。本仓库 public，GitHub 只保存源码和配置，不配置 Actions 发布或生产 Secrets。
+Follow [server-operations release](https://github.com/Crashmere/agent-config/blob/main/skills/server-operations/references/release.md). This repository is public. GitHub stores only source and configuration; it has no Actions release or production Secrets.
 
-## 首次安装
+## First Installation
 
-先完成本地验证、提交推送和 `make release`。按共享规则确认新增运行/发布身份、导入认证与 Nginx 路由的具体安装；先读取远端 `/opt/AGENTS.md`，核对 18086、应用根目录和用户名都未占用。
+Complete local validation, commit and push, and run `make release` first. Under the shared rules, confirm the exact installation of new runtime/deployment identities, import authentication, and Nginx routing. First read remote `/opt/AGENTS.md` and verify that port 18086, the application root, and usernames are all unused.
 
-维护端私有生成导入 token；服务器只安装 SHA-256 文件。传输已校验的 Linux amd64 程序、deploy 材料、hash 与既有部署公钥（不传管理员私钥），核对程序 SHA-256。
+Generate the import token privately on the maintenance side; install only its SHA-256 file on the server. Transfer the verified Linux amd64 program, deploy materials, hash, and existing deployment public key, but not the administrator private key. Verify the program's SHA-256.
 
 ```sh
 sudo bash deploy/install.sh <linux-program> <https-origin> <token-hash-file> <deploy-public-key>
 ```
 
-脚本拒绝现有目录/账户/端口；创建空库、运行 unit、04:15 备份 timer 和受限发布身份，验证回环健康与首份备份，再添加本应用的 Nginx location 链接并验证 reload。共享 Nginx server 本身不修改，其他应用不重启。若 Nginx 语法检查失败，移除本次链接，不强行 reload。
+The script rejects an existing directory, account, or port. It creates an empty database, starts the unit and 04:15 backup timer, creates the restricted deployment identity, verifies loopback health and the first backup, then adds this application's Nginx location link and validates the reload. It does not modify the shared Nginx server itself or restart other applications. If Nginx syntax validation fails, remove the new link and do not force a reload.
 
-首次完成后用正常 `make deploy` 登记已提交程序版本与门户声明，更新共享清单，推送同步项目与共享文档。初始化材料和本地凭据在 Git 外保留。
+After first installation, use normal `make deploy` to register the committed program version and portal declaration. Update the shared inventory, push, and synchronize project and shared documentation. Keep initialization materials and local credentials outside Git.
 
-## 更新
+## Updates
 
 ```sh
 npm --prefix web ci
@@ -26,25 +26,25 @@ make release
 make deploy
 ```
 
-release.sh 复用 server-operations/scripts/release.py，配置在 release.json。只构建已提交文件；产物在 `.local/releases/<commit>/`，包含程序、声明、哈希和构建清单。发布要求干净受跟踪文件与远端备份一致。
+`release.sh` reuses `server-operations/scripts/release.py`, with configuration in `release.json`. It builds only committed files. Artifacts are stored in `.local/releases/<commit>/` and include the program, declaration, hashes, and build manifest. Release requires a clean tracked working tree matching the remote backup.
 
-受限 SSH 用户仅能执行 deploy、portal-check、portal 三类命令，固定 root 脚本不允许上传者改写。发布先验证大小/哈希、停止本应用、旧程序备份、以运行用户校验候选，再原子替换启动；失败恢复旧程序，不回滚数据库。日志记录 recovery 与 result。
+The restricted SSH user may execute only `deploy`, `portal-check`, and `portal`. Uploaders cannot modify the fixed root script. A release verifies size/hash, stops this application, backs up the old program, checks the candidate as the runtime user, then atomically replaces and starts it. On failure it restores the old program without rolling back the database. Logs record `recovery` and `result`.
 
-### 首次启用完整聊天存档
+### First Activation of Full Conversation Archives
 
-此版本追加 archive_schema 1，核心 user_version 仍为 1。先在隔离库验证迁移和旧程序兼容，再按共享授权执行一次显式扩展；普通 make deploy 不自动迁移数据库。
+This version adds `archive_schema` 1 while core `user_version` remains 1. First validate migration and old-program compatibility against an isolated database, then perform one explicit extension under shared authorization. Ordinary `make deploy` does not migrate the database automatically.
 
-1. 完成本次验证、提交推送和 make release。通过管理员 SSH 上传同提交 program 到独立暂存目录，核对 manifest 中的 SHA-256，让 aicalendar 运行用户可执行候选。
-2. 用当前生产程序的 backup 命令创建 `backups/before-archive-extension-<timestamp>.sqlite` 一致性快照；用旧程序 check 校验，记录旧活动与注释的数量/内容摘要。
-3. 以 aicalendar 身份执行候选的 `migrate-archives --db /opt/aicalendar/data/aicalendar.sqlite`，再用候选和旧程序分别 check。核对核心 user_version 不变，旧活动/注释未改；新表不存在历史记录。迁移只增表，允许重复执行。
-4. 正常 make deploy；核对存档 Schema、授权列表、未授权拒绝和门户声明。清理本次暂存程序，保留升级前快照。旧程序可回退且会保留存档表和字节，但不提供存档接口。
+1. Complete current validation, commit and push, and run `make release`. Through administrator SSH, upload the same-commit `program` into a separate staging directory, verify the SHA-256 in the manifest, and make the candidate executable by the `aicalendar` runtime user.
+2. Use the current production program's `backup` command to create a consistent `backups/before-archive-extension-<timestamp>.sqlite` snapshot. Validate it with the old program's `check` and record the old activity/annotation counts and content digests.
+3. As the `aicalendar` identity, run the candidate's `migrate-archives --db /opt/aicalendar/data/aicalendar.sqlite`, then run `check` with both the candidate and old program. Verify that core `user_version` is unchanged, old activities/annotations are unchanged, and the new tables contain no historical records. Migration only adds tables and may be repeated.
+4. Run normal `make deploy`. Verify the archive schema, authenticated listing, unauthenticated rejection, and portal declaration. Remove this task's staged program and retain the pre-upgrade snapshot. The old program can be restored and will retain archive tables and bytes, but it has no archive endpoints.
 
-本扩展复用原数据库和所有备份，不新增存储根目录，不更改 Nginx 请求限制、运行身份或 root 发布脚本。格式与完整性约束见 [ARCHIVES.md](ARCHIVES.md)。
+This extension reuses the original database and every backup. It adds no storage root and changes neither Nginx request limits, runtime identity, nor the root release script. See [ARCHIVES.md](ARCHIVES.md) for format and integrity constraints.
 
-## 回退与配置
+## Rollback and Configuration
 
-`make rollback COMMIT=<完整旧提交>` 复用同一发布保护。先确认旧程序与 schema 兼容。真实数据恢复独立确认，使用恢复到新目录的已验证快照。
+`make rollback COMMIT=<完整旧提交>` uses the same release protections. First confirm that the old program is compatible with the schema. Real data recovery requires separate confirmation and uses a verified snapshot restored to a new directory.
 
-unit、env、token hash、Nginx 与 root 发布脚本不随普通程序更新；需要时按共享授权表核对并安装。不要在仓库保存生产地址、token 或数据库。
+Units, env, token hashes, Nginx, and root release scripts do not change with an ordinary program update; inspect and install them under the shared authorization table when necessary. Do not store a production address, token, or database in the repository.
 
-发布验收：回环健康、网页深链接、未授权网页/API、无效 token、公开图标、授权导入只读查询、门户声明回执、backup.service Result。文档另用共享 sync-docs.sh 同步。
+Release acceptance: loopback health, web deep link, unauthenticated page/API, invalid token, public icons, authenticated import read query, portal declaration receipt, and `backup.service` Result. Synchronize documentation separately with the shared `sync-docs.sh`.
