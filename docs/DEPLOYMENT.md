@@ -21,7 +21,7 @@ After first installation, use normal `make deploy` to register the committed pro
 ```sh
 npm --prefix web ci
 make build
-# 进行本次功能验证后，提交并 push origin main
+# Validate the current feature, then commit and push to origin/main.
 make release
 make deploy
 ```
@@ -43,7 +43,7 @@ This extension reuses the original database and every backup. It adds no storage
 
 ## Rollback and Configuration
 
-`make rollback COMMIT=<完整旧提交>` uses the same release protections. First confirm that the old program is compatible with the schema. Real data recovery requires separate confirmation and uses a verified snapshot restored to a new directory.
+`make rollback COMMIT=<full-old-commit>` uses the same release protections. First confirm that the old program is compatible with the schema. Real data recovery requires separate confirmation and uses a verified snapshot restored to a new directory.
 
 Units, env, token hashes, Nginx, and root release scripts do not change with an ordinary program update; inspect and install them under the shared authorization table when necessary. Do not store a production address, token, or database in the repository.
 
