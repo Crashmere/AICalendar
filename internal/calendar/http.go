@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/Crashmere/AICalendar/api"
 	"github.com/Crashmere/AICalendar/web"
 	"io"
@@ -21,11 +22,12 @@ import (
 )
 
 type Server struct {
-	Store     *Store
-	Origin    string
-	BasePath  string
-	TokenHash string
-	Demo      bool
+	Store          *Store
+	Origin         string
+	AllowedOrigins []string
+	BasePath       string
+	TokenHash      string
+	Demo           bool
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
@@ -56,6 +58,12 @@ func decode(w http.ResponseWriter, r *http.Request, v any) error {
 	return nil
 }
 func (s *Server) Handler() http.Handler {
+	allowedOrigins := make(map[string]bool)
+	for _, origin := range append([]string{s.Origin}, s.AllowedOrigins...) {
+		if ValidOrigin(origin) {
+			allowedOrigins[origin] = true
+		}
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		if e := s.Store.Ping(r.Context()); e != nil {
@@ -195,15 +203,15 @@ func (s *Server) Handler() http.Handler {
 			}
 		} else if r.Method != "GET" && r.Method != "HEAD" && r.Method != "OPTIONS" {
 			origin := r.Header.Get("Origin")
-			allowed := s.Origin
-			if allowed == "" && s.Demo {
+			allowed := allowedOrigins[origin]
+			if len(allowedOrigins) == 0 && s.Demo {
 				scheme := "http"
 				if r.TLS != nil {
 					scheme = "https"
 				}
-				allowed = scheme + "://" + r.Host
+				allowed = origin == scheme+"://"+r.Host
 			}
-			if origin == "" || origin != allowed {
+			if origin == "" || len(r.Header.Values("Origin")) != 1 || !allowed {
 				writeJSON(w, 403, map[string]string{"error": "写入请求需来自本站页面"})
 				return
 			}
@@ -300,5 +308,31 @@ func (s *Server) activities(w http.ResponseWriter, r *http.Request) {
 }
 func ValidOrigin(s string) bool {
 	u, e := url.Parse(s)
-	return e == nil && oneOf(u.Scheme, "http", "https") && u.Host != "" && u.Path == "" && u.RawQuery == "" && u.User == nil && u.Fragment == ""
+	if e != nil || u.Scheme != "https" || u.Hostname() == "" || s != "https://"+u.Host || strings.HasSuffix(u.Host, ":") {
+		return false
+	}
+	if port := u.Port(); port != "" {
+		n, err := strconv.Atoi(port)
+		return err == nil && n >= 1 && n <= 65535
+	}
+	return true
+}
+
+func ParseAllowedOrigins(primary, additional string) ([]string, error) {
+	origins := []string{}
+	seen := make(map[string]bool)
+	for _, origin := range append([]string{primary}, strings.Split(additional, ",")...) {
+		origin = strings.TrimSpace(origin)
+		if origin == "" {
+			continue
+		}
+		if !ValidOrigin(origin) {
+			return nil, fmt.Errorf("invalid HTTPS origin: %q", origin)
+		}
+		if !seen[origin] {
+			origins = append(origins, origin)
+			seen[origin] = true
+		}
+	}
+	return origins, nil
 }

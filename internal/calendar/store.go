@@ -428,10 +428,15 @@ func newFile(path string) (string, error) {
 	return p, f.Close()
 }
 
-// Backup snapshots records, annotations and import audit. Conversation archives
-// are deliberately excluded; the snapshot keeps their empty tables so a restored
-// database still serves the archive API.
-func (s *Store) Backup(ctx context.Context, path string) (err error) {
+// VACUUM INTO preserves the complete committed database, including archive chunks
+// and unfinished uploads, without maintaining a separate table allowlist.
+func (s *Store) Backup(ctx context.Context, path string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return snapshotDatabase(ctx, s.db, path)
+}
+
+func snapshotDatabase(ctx context.Context, source *sql.DB, path string) (err error) {
 	p, err := newFile(path)
 	if err != nil {
 		return err
@@ -441,43 +446,21 @@ func (s *Store) Backup(ctx context.Context, path string) (err error) {
 			os.Remove(p)
 		}
 	}()
-	target, err := sql.Open("sqlite", (&url.URL{Scheme: "file", Path: p, RawQuery: "mode=rw"}).String())
+	if _, err = source.ExecContext(ctx, "VACUUM INTO ?", p); err != nil {
+		return err
+	}
+	if err = CheckFile(ctx, p); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(p, os.O_RDWR, 0)
 	if err != nil {
 		return err
 	}
-	_, err = target.ExecContext(ctx, "BEGIN;"+schema+archiveSchema+"COMMIT;")
-	if e := target.Close(); err == nil {
+	err = f.Sync()
+	if e := f.Close(); err == nil {
 		err = e
 	}
-	if err != nil {
-		return err
-	}
-	conn, err := s.db.Conn(ctx)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-	if _, err = conn.ExecContext(ctx, "ATTACH DATABASE ? AS snapshot", p); err != nil {
-		return err
-	}
-	defer conn.ExecContext(context.Background(), "DETACH DATABASE snapshot")
-	tx, err := conn.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	for _, table := range []string{"activities", "import_batches", "import_changes"} {
-		if _, err = tx.ExecContext(ctx, "INSERT INTO snapshot."+table+" SELECT * FROM main."+table); err != nil {
-			return err
-		}
-	}
-	if err = tx.Commit(); err != nil {
-		return err
-	}
-	if _, err = conn.ExecContext(ctx, "DETACH DATABASE snapshot"); err != nil {
-		return err
-	}
-	return CheckFile(ctx, p)
+	return err
 }
 func Restore(ctx context.Context, source, destination string) error {
 	if e := CheckFile(ctx, source); e != nil {
@@ -493,15 +476,5 @@ func Restore(ctx context.Context, source, destination string) error {
 		return e
 	}
 	defer db.Close()
-	p, err := newFile(destination)
-	if err != nil {
-		return err
-	}
-	if _, err = db.ExecContext(ctx, "VACUUM INTO ?", p); err == nil {
-		err = CheckFile(ctx, p)
-	}
-	if err != nil {
-		os.Remove(p)
-	}
-	return err
+	return snapshotDatabase(ctx, db, destination)
 }

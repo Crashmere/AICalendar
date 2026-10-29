@@ -27,12 +27,12 @@
     },
     {
       "id": "backups",
-      "name": "数据备份",
+      "name": "升级保护",
       "path": "/opt/aicalendar/backups",
-      "purpose": "日历记录、注释与导入审计的快照，不含完整聊天存档；每日快照保留 14 份；发布前快照保留最近 5 份及受保护版本对应快照；手工备份不自动清理。",
+      "purpose": "升级期间的完整数据库临时保护，包含完整聊天、原始材料分块和未完成上传；运行与数据验证通过后立即删除，失败或验证未完成时保留。nas 日常全量压缩备份写入外盘，不自动轮换。",
       "kind": "backups",
       "browse": true,
-      "cleanup": true
+      "cleanup": false
     },
     {
       "id": "releases",

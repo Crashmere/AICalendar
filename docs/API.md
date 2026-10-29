@@ -4,7 +4,7 @@ Contract sources: [JSON Schema](../api/import.schema.json), [OpenAPI](../api/ope
 
 ## Authentication
 
-The web API is under `api/v1/` and protected by the ServerPortal device cookie; write requests additionally require this site's Origin. Programmatic calls use `ingest/v1/` and `Authorization: Bearer <token>`. Do not extract the site-wide cookie from a browser for agent use.
+The web API is under `api/v1/` and protected by the ServerPortal device cookie; write requests additionally require one exact configured HTTPS Origin, including its port. See [Operations](OPERATIONS.md#startup-and-diagnostics) for the primary and additional Origin configuration. Programmatic calls use `ingest/v1/` and `Authorization: Bearer <token>` independently of that browser Origin check. Do not extract the site-wide cookie from a browser for agent use.
 
 | Method | Web path | Import-credential path | Purpose |
 | --- | --- | --- | --- |
@@ -50,7 +50,7 @@ A PATCH request is `{expected_version: <annotation_version>, annotation: {...}}`
 
 ## Export and Recovery
 
-The export shape is `{schema_version,exported_at,activities,imports}`, where `activities` contains `record` and `annotation`. An export package is not directly an import request; reimport requires extracting `record` and explicitly planning annotation recovery. Recovery of calendar records, annotations, and import audits uses a consistent SQLite backup that excludes full conversation archives; see [OPERATIONS.md](OPERATIONS.md). A JSON export cannot replace it.
+The export shape is `{schema_version,exported_at,activities,imports}`, where `activities` contains `record` and `annotation`. An export package is not directly an import request; reimport requires extracting `record` and explicitly planning annotation recovery. Complete database recovery uses a consistent native SQLite snapshot including conversation archives, original chunks, message indexes, and unfinished uploads; see [OPERATIONS.md](OPERATIONS.md). A JSON calendar export cannot replace it.
 
 ## Full Conversations
 

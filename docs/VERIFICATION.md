@@ -1,5 +1,13 @@
 # Verification Scope
 
+## Migration Contracts: 2026-10-29
+
+Local synthetic checks verified exact HTTPS Origins for the retained `ali` entrance, `vps` on port 8443, and the `nas` LAN entrance, plus legacy single-Origin configuration. Unrelated hosts, incorrect ports, HTTP, missing Origin, and malformed configured Origins were rejected. The independent ingest Bearer gate remained in place.
+
+Complete native backup, restore to a new path, and integrity checks passed while the source retained committed WAL data. Calendar/import tables, archive manifests, compressed conversation bytes with a 512 KiB binary original, message indexes, and incomplete uploaded chunks survived recovery. Existing backup destinations were not overwritten and missing sources were not initialized. These checks used temporary synthetic data, not production writes; migration and real-device acceptance are separate operations.
+
+## Initial Delivery
+
 2026-10-07: the first version was deployed to `/aicalendar/` on `ali`, and the public source repository was created. The production service used a newly created empty database.
 
 Verified: frontend type checking and build, Go build; generation of a fixed plan by the skill from synthetic JSON, batch import, persisted receipts, and record read-back; deduplication when retrying the same key, rejection of different requests under the same key, optimistic-version updates, whole-batch rollback on conflict, rejection of reducing a known count, preservation of manual title/tags and hidden state across reimport, and Origin/token rejection paths.

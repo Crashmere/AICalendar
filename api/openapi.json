@@ -2,7 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "AICalendar",
-    "version": "1.1.0"
+    "version": "1.1.0",
+    "description": "Browser /api/v1/ routes require the Portal device cookie; writes additionally require one exact configured HTTPS Origin including its port. /ingest/v1/ uses the independent import Bearer token."
   },
   "servers": [
     {

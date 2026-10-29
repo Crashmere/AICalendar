@@ -32,10 +32,9 @@ runuser -u aicalendar -- "$app/bin/aicalendar" init --db "$app/data/aicalendar.s
 bash "$scripts/setup-deploy.sh" "$public_key"
 systemctl link "$app/config/aicalendar.service" "$app/config/aicalendar-backup.service" "$app/config/aicalendar-backup.timer"
 systemctl daemon-reload
-systemctl enable --now aicalendar.service aicalendar-backup.timer
+systemctl enable --now aicalendar.service
 curl --fail --silent --retry 10 --retry-delay 1 --retry-connrefused http://127.0.0.1:18086/healthz
-systemctl start aicalendar-backup.service
 ln -s "$app/config/nginx-location.conf" /etc/nginx/app-locations/aicalendar.conf
 if ! nginx -t; then rm /etc/nginx/app-locations/aicalendar.conf; echo 'Nginx validation failed; new link removed' >&2; exit 1; fi
 systemctl reload nginx
-echo 'AICalendar installed. Publish its portal declaration and synchronize documents next.'
+echo 'AICalendar installed without scheduled backups. Publish its portal declaration and synchronize documents next.'

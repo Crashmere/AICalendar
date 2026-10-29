@@ -38,7 +38,8 @@ func run() error {
 	from := flags.String("from", "", "backup source")
 	listen := flags.String("listen", env("AICALENDAR_LISTEN", "127.0.0.1:18086"), "loopback listen address")
 	base := flags.String("base-path", env("AICALENDAR_BASE_PATH", "/aicalendar/"), "public path")
-	origin := flags.String("origin", os.Getenv("AICALENDAR_ORIGIN"), "public origin")
+	origin := flags.String("origin", os.Getenv("AICALENDAR_ORIGIN"), "primary HTTPS origin")
+	additionalOrigins := flags.String("allowed-origins", os.Getenv("AICALENDAR_ALLOWED_ORIGINS"), "comma-separated additional HTTPS origins")
 	tokenFile := flags.String("token-hash-file", os.Getenv("AICALENDAR_TOKEN_HASH_FILE"), "private SHA256 hash file")
 	demo := flags.Bool("demo", false, "local development without configured public origin")
 	if e := flags.Parse(os.Args[2:]); e != nil {
@@ -96,8 +97,12 @@ func run() error {
 	if e != nil || net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback() {
 		return fmt.Errorf("serve must listen on an explicit loopback IP")
 	}
-	if !*demo && !calendar.ValidOrigin(*origin) {
-		return fmt.Errorf("AICALENDAR_ORIGIN must be a valid public origin")
+	allowedOrigins, e := calendar.ParseAllowedOrigins(*origin, *additionalOrigins)
+	if e != nil {
+		return e
+	}
+	if !*demo && len(allowedOrigins) == 0 {
+		return fmt.Errorf("configure at least one HTTPS origin through AICALENDAR_ORIGIN or AICALENDAR_ALLOWED_ORIGINS")
 	}
 	if !strings.HasPrefix(*base, "/") || !strings.HasSuffix(*base, "/") {
 		return fmt.Errorf("base path must start and end with /")
@@ -114,7 +119,7 @@ func run() error {
 			return fmt.Errorf("invalid token hash")
 		}
 	}
-	handler := (&calendar.Server{Store: store, Origin: *origin, BasePath: *base, TokenHash: hash, Demo: *demo}).Handler()
+	handler := (&calendar.Server{Store: store, AllowedOrigins: allowedOrigins, BasePath: *base, TokenHash: hash, Demo: *demo}).Handler()
 	server := &http.Server{Addr: *listen, Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 20 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 32768}
 	stop, cancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer cancel()
