@@ -8,8 +8,9 @@ The project is AICalendar, listening on loopback `127.0.0.1:18086` at URL `/aica
 - `config/aicalendar.env`: database, listener, prefix, allowed HTTPS Origins, and token-hash file location.
 - `config/import-token.sha256`: SHA-256 of the import token, root:aicalendar 0640; plaintext exists only in a private directory on the maintenance side.
 - `data/aicalendar.sqlite`: records, annotations, import audits, full-conversation archives/upload chunks/reading indexes; `data` and `backups` are 0700.
-- `backups/`: temporary complete SQLite protection for upgrades; keep failed or unverified protection until recovery is resolved.
-- `releases/`: program release materials under shared retention; successful temporary data backups are not part of retained release history.
+- `backups/`: preserved legacy native snapshots; no routine NAS backup or upgrade protection is created here.
+- `releases/`: program release materials, separate from temporary data protection; NAS has no scheduled release pruning.
+- `/var/lib/server-upgrades/aicalendar/<release>/`: root-private complete cold `data`, `config`, and `bin` protection. Remove only the accepted upgrade's copy after runtime and affected-data validation; retain failed or unverified protection.
 
 The service process has `MemoryMax=192M` and `GOMEMLIMIT=144MiB`, and the application writes only its own `data`. The frontend is built on the maintenance computer; Node/Go is not installed on the server.
 
@@ -23,7 +24,7 @@ Token rotation: in a private location, use `aicalendar token --out <new-private-
 
 ## Backup and Recovery
 
-On `nas`, daily backups are manual, compressed, complete recovery sets written to a verified external filesystem through ServerPortal or an agent. Staging and archive verification also stay on that external filesystem. The legacy `aicalendar-backup.timer` must remain disabled; preserved `ali` backups are not automatically deleted. The native command below is the complete database snapshot used by manual recovery tools and temporary upgrade protection; it does not itself compress a whole-application recovery set.
+On `nas`, routine backups are manual, compressed, complete recovery sets written to a verified external filesystem through ServerPortal or an agent. The controlled job pauses business writers, cold-copies complete data/config/program state externally, resumes previously running services, then compresses and verifies that immutable copy. An unavailable external volume disables the job without an internal fallback. Staging and archive verification stay external; there is no schedule or rotation. The legacy `aicalendar-backup.timer` remains disabled, and preserved `ali` backups are not automatically deleted. The native commands below remain complete database tools for legacy packages and isolated recovery; they do not create a whole-application recovery set or replace the shared NAS upgrade helper.
 
 ```sh
 aicalendar backup --db /path/aicalendar.sqlite --out /new/path/backup.sqlite
@@ -33,9 +34,9 @@ aicalendar restore --from /path/backup.sqlite --db /new/path/restored.sqlite
 
 `backup` uses SQLite `VACUUM INTO` to capture one complete consistent database, including committed WAL data, every table/index, annotations, import audit, conversation manifests, original-material chunks, message indexes, and unfinished uploads. It does not add or enable an archive extension missing from the source. The destination must not exist, has mode 0600, is checked for schema/integrity/foreign keys and synchronized before success; a failed new snapshot is removed. `check` uses a read-only connection. `restore` applies the same complete-copy checks to a new path. Never copy only the main file of a running WAL database.
 
-Older binaries with summary-only backup behavior cannot protect archives during the first upgrade to this version. After stopping writes, use the validated candidate's complete backup or a complete cold database copy. Validate runtime behavior and affected data after upgrade before deleting that upgrade's local protection; health alone is insufficient. Failures or incomplete verification retain protection. Program rollback does not restore data; an agent must confirm the recovery point and restore into an isolated path before replacing production.
+Older binaries with summary-only backup behavior cannot protect archives during the first upgrade to this version. NAS upgrade protection must include the complete cold application tree, not an old native snapshot. Validate runtime behavior and affected data before deleting that upgrade's private protection; health alone is insufficient. Failures or incomplete verification retain protection. Program rollback does not restore data; an agent must confirm the recovery point and restore into an isolated path before replacing production.
 
-The external recovery set also includes programs, private configuration, token hashes, identities, and shared `nas`/`vps` gateway materials. A native SQLite file alone is not a whole-application rebuild package. Material not yet uploaded and maintenance-side plaintext tokens remain outside the database; retain them separately or explicitly include them in an agent backup.
+The Portal external recovery set includes programs, private configuration, token hashes, identities, and shared NAS recovery materials, including its local CA and tunnel configuration. Portal captures NAS only; an agent separately packages live VPS/ALI gateway, certificate, access, and proxy state. A native SQLite file alone is not a whole-application rebuild package. Material not yet uploaded and maintenance-side plaintext tokens remain outside the database; retain them separately or explicitly include them in an agent backup.
 
 ## Portal, Icons, and Documentation
 
@@ -43,4 +44,4 @@ The resource declaration's maintained source is `deploy/portal.json`. A normal r
 
 The site `favicon.svg` and opaque 180×180 `apple-touch-icon.png` are in `web/public`; the latter can be rebuilt with `python3 scripts/generate-icon.py`. Nginx allows anonymous GET/HEAD only for these two files. After release, verify them with the shared `check-site-icons.py`.
 
-Read shared rules, release, authentication, and retention policies from [server-operations](https://github.com/Crashmere/agent-config/tree/main/skills/server-operations). After committing and pushing, run its `scripts/sync-docs.sh AICalendar`; an ordinary binary release does not synchronize docs.
+Read shared rules, release, authentication, and retention policies from [server-operations](https://github.com/Crashmere/agent-config/tree/main/skills/server-operations). After committing and pushing managed documentation, run `SYNC_HOST=nas ~/agent-config/skills/server-operations/scripts/sync-docs.sh AICalendar`; an ordinary binary release does not synchronize docs. Synchronize shared gateway context separately to VPS and compatibility ALI.
