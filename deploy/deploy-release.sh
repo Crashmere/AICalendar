@@ -21,6 +21,14 @@ commit=$1
 expected=$2
 app=/opt/aicalendar
 database=$app/data/aicalendar.sqlite
+nas=false
+upgrade=/opt/server-context/scripts/upgrade-state.py
+if [[ -r /etc/server-maintenance-host && $(< /etc/server-maintenance-host) == nas ]]; then
+  nas=true
+  test -f "$upgrade"
+  exec 8>/run/lock/server-maintenance.lock
+  flock -s -n 8 || { printf 'A full backup or maintenance operation is running.\n' >&2; exit 75; }
+fi
 exec 9>/run/lock/aicalendar-deploy.lock
 flock -n 9 || { printf 'Another deployment is running.\n' >&2; exit 75; }
 test -f "$database"
@@ -90,13 +98,28 @@ printf 'commit=%s\nsha256=%s\n' "$commit" "$expected" > "$release/metadata"
 backup="$app/backups/before-deploy-$(basename "$release").sqlite"
 stopped=true
 systemctl stop aicalendar
-runuser -u aicalendar -- timeout 600 "$app/bin/aicalendar" backup --db "$database" --out "$backup"
-runuser -u aicalendar -- timeout 300 "$release/aicalendar" check --db "$backup"
+if [[ $nas == true ]]; then
+  candidate_data=$(python3 "$upgrade" begin --app aicalendar --release "$(basename "$release")")
+  backup="/var/lib/server-upgrades/aicalendar/$(basename "$release")"
+  runuser -u aicalendar -- timeout 300 "$release/aicalendar" check --db "$candidate_data/aicalendar.sqlite"
+else
+  runuser -u aicalendar -- timeout 600 "$app/bin/aicalendar" backup --db "$database" --out "$backup"
+  runuser -u aicalendar -- timeout 300 "$release/aicalendar" check --db "$backup"
+fi
 install -m 0755 "$release/aicalendar" "$app/bin/aicalendar.next"
 replaced=true
 mv -f "$app/bin/aicalendar.next" "$app/bin/aicalendar"
 systemctl start aicalendar
 wait_healthy
+if [[ $nas == true ]]; then
+  systemctl stop aicalendar
+  python3 "$upgrade" verify --app aicalendar --release "$(basename "$release")"
+  systemctl start aicalendar
+  wait_healthy
+fi
 printf '%s\n' "$commit" > "$app/current-commit"
 chmod 0644 "$app/current-commit"
-printf 'Deployed %s; backup: %s\n' "$commit" "$backup"
+if [[ $nas == true ]]; then
+  python3 "$upgrade" accept --app aicalendar --release "$(basename "$release")"
+  printf 'Deployed %s.\n' "$commit"
+else printf 'Deployed %s; backup: %s\n' "$commit" "$backup"; fi

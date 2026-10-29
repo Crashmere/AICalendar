@@ -14,7 +14,11 @@ scripts=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 [[ $origin =~ ^https://[a-zA-Z0-9.:-]+$ ]] || { echo 'Invalid HTTPS origin' >&2; exit 64; }
 [[ ! -e $app && ! -e /etc/systemd/system/aicalendar.service && ! -e /etc/nginx/app-locations/aicalendar.conf ]] || { echo 'Installation already exists' >&2; exit 1; }
 if id aicalendar >/dev/null 2>&1 || id aicalendar-deploy >/dev/null 2>&1; then echo 'Account already exists' >&2; exit 1; fi
-[[ -f /run/lock/ali-release-retention.lock && -x /opt/serverportal/bin/portal ]]
+[[ -x /opt/serverportal/bin/portal ]]
+[[ ${ENABLE_APP_BACKUP_TIMER:-false} != true || -f /run/lock/ali-release-retention.lock ]]
+if [[ ${ENABLE_APP_BACKUP_TIMER:-false} == true && -r /etc/server-maintenance-host && $(< /etc/server-maintenance-host) == nas ]]; then
+  echo 'Scheduled internal application backups are disabled on NAS.' >&2; exit 1
+fi
 grep -Eq '^[0-9a-f]{64}$' "$hash_file"
 ssh-keygen -l -f "$public_key" >/dev/null
 if ss -H -ltn 'sport = :18086' | grep -q .; then echo 'Port 18086 is in use' >&2; exit 1; fi
@@ -33,8 +37,10 @@ bash "$scripts/setup-deploy.sh" "$public_key"
 systemctl link "$app/config/aicalendar.service" "$app/config/aicalendar-backup.service" "$app/config/aicalendar-backup.timer"
 systemctl daemon-reload
 systemctl enable --now aicalendar.service
+if [[ ${ENABLE_APP_BACKUP_TIMER:-false} == true ]]; then systemctl enable --now aicalendar-backup.timer;
+else systemctl disable --now aicalendar-backup.timer; fi
 curl --fail --silent --retry 10 --retry-delay 1 --retry-connrefused http://127.0.0.1:18086/healthz
 ln -s "$app/config/nginx-location.conf" /etc/nginx/app-locations/aicalendar.conf
 if ! nginx -t; then rm /etc/nginx/app-locations/aicalendar.conf; echo 'Nginx validation failed; new link removed' >&2; exit 1; fi
 systemctl reload nginx
-echo 'AICalendar installed without scheduled backups. Publish its portal declaration and synchronize documents next.'
+echo 'AICalendar installed. Publish its portal declaration and synchronize documents next.'
