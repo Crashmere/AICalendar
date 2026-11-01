@@ -14,6 +14,8 @@ The project is AICalendar, listening on loopback `127.0.0.1:18086` at URL `/aica
 
 The service process has `MemoryMax=192M` and `GOMEMLIMIT=144MiB`, and the application writes only its own `data`. The frontend is built on the maintenance computer; Node/Go is not installed on the server.
 
+Archive uploads use 384 KiB chunks of raw gzip bytes encoded as base64 JSON, fitting the 1 MiB request limit. The browser and Bearer-ingest namespaces retain their existing authentication and buffering. Follow [Upload throughput and request limits](https://github.com/Crashmere/agent-config/blob/main/skills/server-operations/references/conventions.md#upload-throughput-and-request-limits), also at `/opt/server-context/references/conventions.md` on NAS, for connection-level speed diagnosis; [Archives](ARCHIVES.md#upload-protocol) owns the archive transfer contract.
+
 ## Startup and Diagnostics
 
 `serve` does not create or migrate a database automatically. The full-conversation extension is added explicitly with `migrate-archives`; see [ARCHIVES.md](ARCHIVES.md) for upgrade and old-program compatibility. Only `init` may explicitly create a new database, and the destination must not exist. Diagnose first with `systemctl status aicalendar`, `journalctl -u aicalendar`, loopback `/healthz`, and configuration paths. Do not “repair” data loss by creating an empty database.
