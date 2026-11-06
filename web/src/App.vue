@@ -168,9 +168,9 @@ onMounted(async()=>{readURL();window.addEventListener('popstate',readURL);docume
 <template>
  <div class="app-shell">
   <aside class="sidebar">
-   <a class="brand" :href="base"><span class="brand-mark"><CalendarDays :size="22"/></span><span>AICalendar<small>AI 活动日历</small></span></a>
+   <a class="brand" :href="base"><span class="brand-mark"><CalendarDays :size="22"/></span><span>AICalendar</span></a>
    <nav><button v-for="v in views" :key="v.id" :class="{active:view===v.id}" @click="view=v.id" :aria-label="v.label"><component :is="v.icon" :size="18"/><span>{{v.label}}</span></button></nav>
-   <div class="sidebar-bottom"><p>最近整理<strong>{{dateTime(imports[0]?.created_at)}}</strong></p><a class="portal-link" href="/portal/">服务器门户<ArrowUpRight :size="15"/></a></div>
+   <div class="sidebar-bottom"><p>最近整理<strong>{{dateTime(imports[0]?.created_at)}}</strong></p><a class="portal-link" href="/portal/">ServerPortal<ArrowUpRight :size="15"/></a></div>
   </aside>
   <main>
    <header class="page-header"><div><h1>{{headings[view]}}</h1><p>{{view==='imports'?'每个来源整理到了哪里，每次导入带来了什么。':'回顾与 AI 一起思考、创造和解决问题的日子。'}}</p></div><button class="primary" @click="importOpen=true"><Plus :size="17"/>导入记录</button></header>

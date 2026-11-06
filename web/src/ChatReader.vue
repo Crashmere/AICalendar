@@ -48,7 +48,7 @@ function normalize(m:Merged){
  if(m.role==='assistant')m.text=m.text.replace(citation,'')
 }
 
-async function request(url:string){const r=await fetch(url);if(r.status===401)throw Error('设备登录已失效，请从服务器门户重新登录。');const data=await r.json();if(!r.ok)throw Error(data.error||'存档读取失败');return data}
+async function request(url:string){const r=await fetch(url);if(r.status===401)throw Error('设备登录已失效，请从 ServerPortal 重新登录。');const data=await r.json();if(!r.ok)throw Error(data.error||'存档读取失败');return data}
 
 const messages=computed(()=>{
  const out:Merged[]=[]
