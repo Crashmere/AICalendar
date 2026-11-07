@@ -121,6 +121,11 @@ async function selectDay(d:string){
 }
 function toggleSource(s:string){sources.value=sources.value.includes(s)?sources.value.filter(x=>x!==s):[...sources.value,s]}
 function clearFilters(){q.value='';sources.value=[];tags.value=[]}
+function home(){
+ view.value='calendar';clearFilters();showHidden.value=false
+ setRange(monthRange(+today.value.slice(0,4),+today.value.slice(5,7)))
+ selected.value=defaultDay(current.value)
+}
 function openChat(t:ChatTarget){chat.value=t}
 function saved(a:Activity){const i=activities.value.findIndex(x=>x.id===a.id);if(i>=0)activities.value.splice(i,1,a);detail.value=a;toast('修改已保存，重新导入也会保留')}
 async function imported(r:ImportResult){importOpen.value=false;await load();toast(r.replay?'这批记录已经导入，无需重复写入':`已导入：新增 ${r.inserted} 条，更新 ${r.updated} 条`)}
@@ -168,7 +173,7 @@ onMounted(async()=>{readURL();window.addEventListener('popstate',readURL);docume
 <template>
  <div class="app-shell">
   <aside class="sidebar">
-   <a class="brand" :href="base"><span class="brand-mark"><CalendarDays :size="22"/></span><span>AICalendar</span></a>
+   <a class="brand" :href="base" @click.exact.prevent="home"><span class="brand-mark"><CalendarDays :size="22"/></span><span>AICalendar</span></a>
    <nav><button v-for="v in views" :key="v.id" :class="{active:view===v.id}" @click="view=v.id" :aria-label="v.label"><component :is="v.icon" :size="18"/><span>{{v.label}}</span></button></nav>
    <div class="sidebar-bottom"><p>最近整理<strong>{{dateTime(imports[0]?.created_at)}}</strong></p></div>
   </aside>
